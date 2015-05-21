@@ -1,2 +1,3 @@
 Git is a version control system.
-GTit is free software.
+Git is free software.
+update at 21 May 2015.
