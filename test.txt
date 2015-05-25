@@ -1,2 +1,3 @@
 test for git rm
 How ssh works?
+Test the proxy
