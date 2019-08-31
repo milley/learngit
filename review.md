@@ -1,251 +1,75 @@
-# 为什么要使用pathlib
+# DevOps干什么
 
-当我不就之前发现一个新的python模块pathlib，一开始我把它写的有点尴尬以为只是面向对象版本的不必要的os.path模块。我搞错了。Python的pathlib模块实际上非常完美！
+[What do you do as a DevOps?](https://ilhicas.com/2019/08/11/What-you-as-a-Devops.html)
 
-在这个文章我打算尝试着把pathlib推销给你。通过这篇文章我希望鼓励你在相当多的时间在Python中需要用文件就使用pathlib模块。
+## 介绍
 
-## os.path是不灵活的
+在这篇文章里我将为你介绍我实际的工作，和过去三年里在这个领域作为一个咨询顾问，而不是试图界定一个工作角色。
 
-os.path模块一直以来可以达成工作路径的目标。它有相当多你需要的，但是有时候显得非常笨重。
+DevOps这个词的意思是巨大的过载，对于不同的人或者组织来说，可能是许多不同的事情。因此我不打算尝试找或者描述DevOps工程师的规范定义，或者实际上是一个工作角色/职位或者一个文化运动。
 
-你有没有这样导入过它？
+## 动机因素
 
-```python
-import os.path
+写这篇文章的动机是有的时候我很难一句话说清楚我具体的工作，相比我是Java专家，前端开发，系统管理员或其他你经常提到的角色，这在知识领域内严格定义了单一的专业领域(sysadmin也有一些含糊)。
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
-```
+我在[Reddit Devops Chanel](https://www.reddit.com/r/devops/comments/cogvli/what_do_you_do_as_a_devop/)看到一篇文章让我问自己这个问题是否可以在自己的博客中描述它，在我问了原始的文章后。这是我的尝试。
 
-或者像这样？
+## 作为DevOps顾问我做什么
 
-```python
-from os.path import abspath, dirname, join
+### DevOps角色背景
 
-BASE_DIR = dirname(dirname(abspath(__file__)))
-TEMPLATES_DIR = join(BASE_DIR, 'templates')
-```
+当我最初开始为公司工作的时候，当时我在IT领域仅仅只有一些短期的经验，总共7个月时间，其中一个暑假4个月时间在做全栈开发，使用ASP.NET框架和RAZOR的后台模板技术，和一些kickout.js混合开发，使用svn当做软件配置管理(哎...:D)，之后在我的考核中，我兼职做了3个月的初级研究员，在那里我接触到了虚拟化技术，基于一个研究项目，使用一个叫做Jailhouse的西门子项目来发现虚拟化技术对RTOS(实时操作系统)的影响，允许虚拟化单元(让我们称之为单元)，访问其他单元无法共享的硬件，这是我第一次接触Hypervisors(虚拟化管理系统)，它们的类型，它们如何工作，我相信虚拟化概念将是DevOps/基础建设 角色中需要了解的一个重要概念。
 
-或者join函数太通用了...所以我们这样使用：
+### DevOps角色中我的路线图
 
-```python
-from os.path import abspath, dirname, join as joinpath
+> Fiercely - 一家咨询公司，帮助IT公司通过改善开发流程和工作流，基础设施自动化以及一些有见解的方式改变整体思维方式。
 
-BASE_DIR = dirname(dirname(abspath(__file__)))
-TEMPLATES_DIR = joinpath(BASE_DIR, 'templates')
-```
+自从Fiercely来了后，我开始工作在工业物联网环境中，在那里我可以选择语言、框架，只要在架构层级和业务需求都允许的情况下。
 
-我发现这些都有一些笨重。我们把字符串传入函数然后返回再次传入另外一个函数返回的字符串。所有的字符串都表示路径，但是他们依旧是字符串。
+在那个项目中我最终使用python和flask，第一次接触到docker，用来管理网络、工业协议、交叉编译到arm设备上，RAM资源优化，如何加固软件项目，应对物理环境的挑战，就像断电、网络中断等等。与此同时，我在内部开发一个叫ODOO的Open ERP系统使用python脚本自动配置(ODOO也是用python开发的)。
 
-在os.path中字符串进出函数的确有些不灵活是因为代码需要从里面函数的返回来读取。有没有优雅的方法当我们需要把函数的调用串起来来代替呢？
+从那之后我转到咨询顾问，最终我接触到了Configuration Management，使用Ansible，在Vagrant使用LXC(后来迁移到Docker)来保持ansible中provisioning和开发环境一致，在DevOps的直接中最著名的一句，避免了"它在我这里可以运行了"!
 
-使用pathlib就可以！
+### 配置管理(Configuration Management)
 
-```python
-from pathlib import Path
+为了让所有这些一起工作，对于那些做过配置管理的人来说，这不是什么问题，他们使用一些手册，因为当你写那些时候，你需要全面的基础设施和开发背景，你需要了解操作系统，它们的特点，它们的脚本(是bash,powershell还是其他)，最重要的是对任何DevOps角色的最大要求是对软件架构的充分了解，深入了解软件如何工作，它们的模式和工具语法。
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-TEMPLATES_DIR = BASE_DIR.joinpath('templates')
-```
+DevOps角色需要你了解组织架构，如何变成，网络如何工作，如何虚拟化，软的，类型1，类型2等等，你需要做胶水，这些都发生在你工作流当中。
 
-os.path需要函数嵌套，但是pathlib模块的Path类允许我们把方法和属性串起来，在Path对象上等同于获取的路径。
+### CI/CD
 
-我知道你在考虑什么：Path对象不是相同的事物：它们是对象，不是路径字符串！随后我将会讲解这块。
+使用CI/CD(continuous intgration/Continuous Delivery)工具，在源代码管理系统管理应用代码和基础架构。为了实现这个目标，我大量的使用git，和一些git工作流，在使用groovy自动构建Jenkins，允许yaml人工配置，不能同时使用groovy和shell脚本，我在那块花了很多时间，它作为DevOps静态呈现，即使我现在没有使用我想要的那么多的功能，CI/CD工具也是一个很好的管道。
 
-## os模块是拥挤的
+### 安全和权限控制
 
-Python著名的os.path模块仅仅用在路径。当你需要真正的操作路径(例如创建目录)你需要转到另外一个Python的模块，大部分是os模块。
+最后还配合认证、授权使用LDAP，Keycloak，keycloak也是常见问题，虽然那里有很多工具，就像我说的，我们是顽固的，众所周知的3A(授权、鉴权和访问管理)解决方案就像keycloak是你的工具必须有的。
 
-os模块有很多使用的文件操作：mkdir,getcwd,chmod,stat,remove,rename和rmdir。还有chdir,link,walk,listdir,makedirs,renames,removedirs,unlink(和remove相同)和symlink。还有一串非文件系统的操作：fork,getenv,putenv,evniron,getlogin和system。还有很多这里没有介绍的。
+### 基础设施作为代码
 
-Python的os模块有一些亮点，也有一些简直是个系统相关操作的垃圾抽屉。在os模块有很多好用的东西，但有时候你想用的时候又很难找：当你找路径相关或者文件系统相关的东西，你需要一些时间来挖掘。
+除了Docker，Vagant，甚至在某些场景下可能的，我又接触到了Terraform，和CloudFormation的简短接触，除了一些带有ESXI实例，你还会把一些云基础设施自动化，在这里角色开始模糊，很多公司需要一些Terraform专家，或者部分Azure DevOps Ninja或AWS Boss，忘记大部分时间，这些工具都在行尾，作为一个好的DevOps角色，你需要很多工具，在DevOps角色中你不会仅仅接触单一的，但是，您正在寻找一些Terraform专家/Azure角色，并成为一个新的Cloud SysAdmin，而不是DevOps角色。
 
-pathlib模块替换了os实用的大多数文件系统相关操作，在Path对象上操作方法。
+### 负载均衡和反向代理能力
 
-这里有代码例子创建srd/__pypackages__路径然后将.editorconfig文件改名到src/.editorconfig:
+如果你没有接触过Nginx，HaProxy或Traefik或者以他们的实例格式安装，那你就做错了。我配置了负载均衡器，主要作为反向代理，虽然我还没有遇到很多ELB的配置或者他们的Azure对应的配置。
 
-```python
-import os
-import os.path
+### 应用开发
 
-os.makedirs(os.path.join('src', '__pypackages__'), exist_ok=True)
-os.rename('.editorconfig', os.path.join('src', '.editorconfig'))
-```
+最后但并非最不重要的一点是，是的，我现在也发展成了全栈开发，使用Java和Javascript。我相信作为一个DevOps，在整个解决方案中考虑上下文，实际上会让我成为一个更好的工程师和程序员。也就不会出现，你编译下它你运行它...所以最终，双方都写应用程序线，到支持的基础设施代码，到前面的LB，它们的部署和QA管道。
 
-实用Path对象做同样的事情：
+### 数据库
 
-```python
-from pathlib import Path
+ElasticSearch, PostgreSql , MySql等等。我当前不是DBA，但最终也会配置这些。从连接到ACL，到备份和管理，但我远不是SQL专家，无论如何也要避免在狭小的领域里，成为数据库或者AWS专家。
 
-Path('src/__pypackages__').mkdir(parents=True, exist_ok=True)
-Path('.editorconfig').rename('src/.editorconfig')
-```
+### 人文要素
 
-注意pathlib先把路径放入代码中是因为方法串联了！
+到目前为止，我已经接触了很多语言和环境，所以除了所有的编码之外，大部分时间，我最终还是和人类交谈，我的工作的一部分实际上是帮助其他有DevOps心态的工程师，简化事情，让他们的生活更容易在整个组织内运行自己的应用程序，缩小Devs和Operation之间的差距。
 
-作为Python之禅，"namespaces are one honking great idea, let's do more of those"。os模块是一个包含了很多有用东西的命名空间。pathlib.Path类是一个小巧的、特定命名空间。在Path命名空间增加了方法返回Path对象，相比嵌套函数它允许方法串起来。
+### Tl;Dr
 
-## 不要忘记glob模块
+Tl;Dr你最终使用了多种技术。因此，DevOps有时被用作“所有行业的杰克“的总称，尽管我并不自称“任何东西的主人“，但仍有很长的路要走。
 
-os和os.path模块不仅仅是文件路径/文件系统相关功能的Python标准库。glob模块是另外一个易用的路径关系模块。
+希望你喜欢.，希望它给你带来了一些关于DevOps实际做什么的光芒。或者如果你已经在做类似的事情，你发现你的工作和我的工作有一些相似之处
 
-我们可以使用glob.glob函数来查找文件是否匹配：
+最后附上一个优秀的DevOps的学习路线图
 
-```python
-from glob import glob
-
-top_level_csv_files = glob('*.csv')
-all_csv_files = glob('**/*.csv', recursive=True)
-```
-
-用pathlibmokuai包含了glob的这类操作：
-
-```python
-from pathlib import Path
-
-top_level_csv_files = Path.cwd().glob('*.csv')
-all_csv_files = Path.cwd().rglob('*.csv')
-```
-
-你开始大量使用pathlib，你很快就会完全的忘记glob模块了：你所需要glob所有的功能Path对象都包含。
-
-## pathlib使用更容易
-
-pathlib模块使得一部分复杂的案例简单一些，但是它仍旧能把简单案例变得更简单。
-
-需要读取一个或多个文件的文本？
-
-你可以打开文件，读取它的内容然后使用with块关闭文件：
-
-```python
-from glob import glob
-
-file_contents = []
-for filename in glob('**/*.py', recursive=True):
-    with open(filename) as python_file:
-        file_contents.append(python_file.read())
-```
-
-你可以用Path对象的read_text方法然后读取文件内容到一个新的列表中：
-
-```python
-from pathlib import Path
-
-file_contents = [
-    path.read_text()
-    for path in Path.cwd().rglob('*.py')
-]
-```
-
-你需要写入到文件中？你可以使用open上下文管理器：
-
-```python
-with open('.editorconfig') as config:
-    config.write('# config goes here')
-```
-
-你可以使用write_text方法：
-
-```python
-Path('.editorconfig').write_text('# config goes here')
-```
-
-如果你更喜欢使用open,是否是上下文管理器或者其他，你可以使用Path对象的open方法来代替。
-
-```path
-from pathlib import Path
-
-path = Path('.editorconfig')
-with path.open(mode='wt') as config:
-    config.write('# config goes here')
-```
-
-在Python3.6你可以省略Path对象来使用内置的open函数：
-
-```python
-from pathlib import Path
-
-path = Path('.editorconfig')
-with open(path, mode='wt') as config:
-    config.write('# config goes here')
-```
-
-## Path对象使你的代码更加清晰
-
-以下3个变量指向什么？它们的值代表什么？
-
-```python
-person = '{"name": "Trey Hunner", "locaton": "San Diego"}'
-pycon_2019 = "2019-05-01"
-home_directory = "/home/trey"
-```
-
-它们每个变量都指向一个字符串。
-
-这些字符串代表了不同的事情：一个是JSON blog，一个是date，一个是文件路径。
-
-这些对这些对象更有用的表述：
-
-```python
-from datetime import data
-from pathlib import Path
-
-person = {"name": "Trey Hunner", "locaton": "San Diego"}
-pycon_2019 = date(2019,5,1)
-home_directory = Path('/home/trey')
-```
-
-JSON对象反序列化到字典，日期用datetime.date对象来描述，文件路径使用pathlib.Path对象描述。
-
-使用Path对象使你的代码更加清晰。如果你需要表示一个日期你可以使用data对象。如果你需要表示一个文件路径使用Path对象。
-
-我不是一个面向对象编程的强烈拥护者。类增加了另外一种抽象维度，抽象在一些时候增加了更多的复杂性。但是pathlib.Path类是一个有用的抽象。它快速的成为了普遍认可的抽象。
-
-感谢PEP519,文件路径对象现在成为了标准。从Python3.6开始，内置open函数和各种os,shutil和os.path模块中的各种函数都可以在pathlib.Path很好的工作。从今天开始你可以使用pathlib不需要改变大多数的代码更好的工作在路径中。
-
-## pathlib缺失了什么
-
-虽然pathlib非常好，但是也没有包含所有。我碰巧发现缺失了一些我希望包括在pathlib模块内的。
-
-第一个缺口是我注意到缺少了shutil等价的方法。当你可以传Path对象到高级别shutil函数来拷贝/删除/移动文件和文件夹，这没有等价的方法。
-
-所以拷贝一个文件你依然需要这样：
-
-```python
-from pathlib import Path
-from shutil import copyfile
-
-source = Path('old_file.txt')
-destination = Path('new_file.txt')
-copyfile(source, destination)
-```
-
-这里也没有pathlib等价于os.chdir的方法。如果你需要改变当前工作路径你需要导入chdir：
-# Works on earlier versions also
-```python
-from pathlib import Path
-from os import chdir
-
-parent = Path('..')
-chdir(parent)
-```
-
-os.walk函数没有和pathlib相同的。尽管你可以使用pathlib很容易的创建自己的walk函数。我希望pathlib.Path对象应该包含更多的缺失操作。但即使有这些缺失的特征，我仍然觉得使用"pathlib"相比"os.path"更友好。
-
-## 你经常使用pathlib吗
-
-自从Python3.6，pathlib.Path对象几乎可以工作在任何路径相关的地方。所以如果你使用的Python3.6及以上我看没有任何理由不使用pathlib。
-
-如果你使用的更早期版本的Python3，你可以将Path对象放到str对象中，以便在需要一个变更路径可以从字符串中拿到。虽然有点难看但是可以工作：
-
-```python
-from os import chdir
-from pathlib import Path
-
-chdir(Path('/home/trey'))   # Works on Python 3.6+
-chdir(str(Path('/home/trey')))  # Works on earlier versions also
-```
-
-不管你使用的是Python3的哪个版本都建议你使用pathlib。如果你使用的是Python2那么第三方pathlib2模块可以通过PYPI来使用。
-
-我发现使用pathlib可以经常让代码可读性更高。我大多数的工作在文件的代码都使用pathlib，我想你也可以做同样的事情。
+<img src="./img/devops-roadmap.png" width="100%" >
