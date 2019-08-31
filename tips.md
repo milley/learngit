@@ -1,5 +1,3 @@
-# SuperTinyIcons图标库
+# Git飞行规则
 
-[SuperTinyIcons](https://github.com/edent/SuperTinyIcons)
-
-一个SVG图标库，里面有常用的Logo图标。
+关于git操作过程中出问题怎么操作，参考[Git飞行规则](https://github.com/k88hudson/git-flight-rules/blob/master/README_zh-CN.md)
