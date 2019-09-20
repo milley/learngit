@@ -1,36 +1,62 @@
-# __cdecl解释
+# adb基本操作
 
-首先，__cdecl是Microsoft专用，用来为C调用约定和C++程序。由调用方清理堆栈，因为可以执行vararg函数。以下列表表示调用约定的实现。
+## 1. adb devices
 
-| 元素 | 实现 |
-|---| ----- |
-| 参数传递顺序 | 从右往左 |
-| 堆栈维护职责 | 调用函数从堆栈中弹出自变量 |
-| 名称修饰约定 | 下划线字符(_)前缀的名称，除非当_导出使用C链接的cdecl函数 |
-| 大小写转换约定 | 不执行任何大小写转换 |
+列举当前连接的调试设备
 
-位置 __cdecl在变量或者函数名称前面的修饰符。 由于 C 命名和调用约定为默认值，时，才必须使用 __cdecl在 x86 代码是在指定/Gv(vectorcall)、 /Gz (stdcall) 或/Gr(fastcall)编译器选项。 /Gd编译器选项强制执行 __cdecl调用约定。
+## 2. adb logcat
 
-在 ARM 和 x64 处理器， __cdecl是接受，但编译器一般会忽略。 按照 ARM 和 x64 上的约定，自变量将尽可能传入寄存器，后续自变量传递到堆栈中。 在 x64 代码中，使用 __cdecl重写 /Gv编译器选项并使用默认的 x64 调用约定。
+打印log信息
 
-对于非静态类函数，如果函数是超行定义的，则调用约定修饰符不必在超行定义中指定。 也就是说，对于类非静态成员方法，在定义时假定声明期间指定的调用约定。 给定此类定义：
+| 指令 | 说明 | 备注 |
+|---|-------|-------|
+|adb logcat | 打印log | / |
+| adb logcat | 打印log | / |
+| adb logcat -c | 清除手机的log buffer | 有些手机权限控制, 不支持. |
+| adb logcat -b <buffer> | 打印指定buffer的log信息 | buffer有: main(主log区,默认), events(事件相关的log), radio(射频, telephony相关的log) |
+| adb logcat -v <format> | 格式化输出log | 常用的用adb logcat -v time显示时间 |
+| adb logcat -f <filename> | 输出log到指定文件 |
 
-```c++
-struct CMyClass {
-   void __cdecl mymethod();
-};
-```
+## 3. adb install/uninstall
 
-此：
+安装卸载apk
 
-```c++
-void CMyClass::mymethod() { return; }
-```
+## 4. adb pull/push
 
-等效于：
+调试设备和开发PC之间拷贝文件.
 
-```c++
-void __cdecl CMyClass::mymethod() { return; }
-```
+## 5. adb start/kill-server
 
-与以前版本的兼容性cdecl并 _cdecl是的同义词 __cdecl除非编译器选项/Za(禁用语言扩展）指定。
+启动/杀死adb简介中提到的Server端进程
+
+## 6. adb shell
+
+进入调试设备的shell界面, 此时可以使用调试设备中的很多指令
+
+## 7. adb connect/disconnect
+
+通过wifi进行远程连接手机进行调试的
+
+## 8. adb shell am
+
+am即activity manager.该命令用来执行一些系统动作, 例如启动指定activity, 结束进程, 发送广播, 更改屏幕属性等. 调试利器.
+
+## 9. adb shell pm
+
+pm即package manager.用来执行package相关的操作, 例如安装卸载, 查询系统的安装包等
+
+## 10. adb shell screencap
+
+截屏, 比截屏快捷键更加方便快捷
+
+## 11. adb shell screenrecord
+
+录屏, 做demo的话, 可以很方便的用这个命名录制视频, 然后借助工具将其转换成gif图
+
+## 12. adb shell dumpsys
+
+强大的dump工具, 可以输出很多系统信息. 例如window, activity, task/back stack信息, wifi信息等.
+
+## 13. adb forward tcp:1322 tcp:1322
+
+交互流程，pc端口重定向到手机端口
