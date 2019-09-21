@@ -1,75 +1,259 @@
-# DevOps干什么
+# C++中的Tree-Set数据结构
 
-[What do you do as a DevOps?](https://ilhicas.com/2019/08/11/What-you-as-a-Devops.html)
+[Tree-Set data structure in C++](https://link.medium.com/doFxDJ9w9Z)
 
-## 介绍
+你知道什么是二叉查找树和set在数学中的概念吗？在这篇文章中我将会使用set的属性来构建一个二叉树，自平衡和可以支持各种数据类型(从你拥有的内置对象)，使用C++的超级特性模板。
 
-在这篇文章里我将为你介绍我实际的工作，和过去三年里在这个领域作为一个咨询顾问，而不是试图界定一个工作角色。
+树是一种复杂的数据结构，大多数在树上执行的函数都需要递归调用。这个练习将会通过递归训练我们的大脑，理解如何构建一个二叉树，AVL树如何自平衡和使用二叉树优先于其他数据结构的不同原因，包括一个简单的复杂性分析。
 
-DevOps这个词的意思是巨大的过载，对于不同的人或者组织来说，可能是许多不同的事情。因此我不打算尝试找或者描述DevOps工程师的规范定义，或者实际上是一个工作角色/职位或者一个文化运动。
+<img src="./img/TreeSet_1.png" width="60%" >
 
-## 动机因素
+如果一棵树的所有子树不超过2个我们就把这棵树称作二叉树，因此，一个子节点不存在通常就是指向NULL。一个完全二叉树是指除了最后一级其余的层级都有左右子节点。树的一些相关术语有：Edge(两个节点中间的连接线)，子节点和父节点，根节点(所有节点最高的祖先节点)和叶子节点(没有子节点的节点)。
 
-写这篇文章的动机是有的时候我很难一句话说清楚我具体的工作，相比我是Java专家，前端开发，系统管理员或其他你经常提到的角色，这在知识领域内严格定义了单一的专业领域(sysadmin也有一些含糊)。
+<img src="./img/TreeSet_2.png" width="60%" >
 
-我在[Reddit Devops Chanel](https://www.reddit.com/r/devops/comments/cogvli/what_do_you_do_as_a_devop/)看到一篇文章让我问自己这个问题是否可以在自己的博客中描述它，在我问了原始的文章后。这是我的尝试。
+首先，我为二叉查找树定义了一个类DoublyNode，它意味着所有的节点最多只能有2个子节点，用另外一种说法就是每个节点有2个指针(left:prev或者right:next)和一个数据value<Type>，还有一些成员变量和函数定义。
 
-## 作为DevOps顾问我做什么
+<img src="./img/TreeSet_2.png" width="60%" >
 
-### DevOps角色背景
+在DoublyNode类中，头文件"DoublyNode.h"包含了#pragma once和一个模板来使节点灵活的支持不同数据类型template<class Type>，类定义了一个私有的成员变量Type data和两个公共的指针Type(left和right)，指针将会初始化成NULL(C++11中的nullptr)整体的C++11构成"Type *left{nullptr}, *right{rightptr};"。
 
-当我最初开始为公司工作的时候，当时我在IT领域仅仅只有一些短期的经验，总共7个月时间，其中一个暑假4个月时间在做全栈开发，使用ASP.NET框架和RAZOR的后台模板技术，和一些kickout.js混合开发，使用svn当做软件配置管理(哎...:D)，之后在我的考核中，我兼职做了3个月的初级研究员，在那里我接触到了虚拟化技术，基于一个研究项目，使用一个叫做Jailhouse的西门子项目来发现虚拟化技术对RTOS(实时操作系统)的影响，允许虚拟化单元(让我们称之为单元)，访问其他单元无法共享的硬件，这是我第一次接触Hypervisors(虚拟化管理系统)，它们的类型，它们如何工作，我相信虚拟化概念将是DevOps/基础建设 角色中需要了解的一个重要概念。
+```c++
+#pragma once
 
-### DevOps角色中我的路线图
+template<class Type>
+class DoublyNode
+{
+    private:
+        Type key;
+    
+    public:
+        DoublyNode<Type> *left{ nullptr }, *right{ nullptr };
 
-> Fiercely - 一家咨询公司，帮助IT公司通过改善开发流程和工作流，基础设施自动化以及一些有见解的方式改变整体思维方式。
+        DoublyNode();
+        DoublyNode(const Type& data);
 
-自从Fiercely来了后，我开始工作在工业物联网环境中，在那里我可以选择语言、框架，只要在架构层级和业务需求都允许的情况下。
+        // getter and setter
+        Type& getData();
+        void setData(const Type& data);
 
-在那个项目中我最终使用python和flask，第一次接触到docker，用来管理网络、工业协议、交叉编译到arm设备上，RAM资源优化，如何加固软件项目，应对物理环境的挑战，就像断电、网络中断等等。与此同时，我在内部开发一个叫ODOO的Open ERP系统使用python脚本自动配置(ODOO也是用python开发的)。
+        // destructor
+        ~DoublyNode();
+};
+```
 
-从那之后我转到咨询顾问，最终我接触到了Configuration Management，使用Ansible，在Vagrant使用LXC(后来迁移到Docker)来保持ansible中provisioning和开发环境一致，在DevOps的直接中最著名的一句，避免了"它在我这里可以运行了"!
+为什么要使用#pragma once或者#infdef DOUBLYNODE_H #def DOUBLYNODE_H #endif？这是为了在编译文件时只引入一次。所有的成员函数都是public，两个构造函数(一个没有参数一个有Type value参数)，一个setter用来给节点设置值和一个getter用来从节点取值，跟随OOP封装概念。
 
-### 配置管理(Configuration Management)
+类DoublyNode和.cpp文件中5-13行是两个构造方法，这里我只用了带参数的定义，当data值是以参数传到节点，right和left指针指向{ nullptr }。
 
-为了让所有这些一起工作，对于那些做过配置管理的人来说，这不是什么问题，他们使用一些手册，因为当你写那些时候，你需要全面的基础设施和开发背景，你需要了解操作系统，它们的特点，它们的脚本(是bash,powershell还是其他)，最重要的是对任何DevOps角色的最大要求是对软件架构的充分了解，深入了解软件如何工作，它们的模式和工具语法。
+```c++
+#include "DoublyNode.h"
 
-DevOps角色需要你了解组织架构，如何变成，网络如何工作，如何虚拟化，软的，类型1，类型2等等，你需要做胶水，这些都发生在你工作流当中。
+// constructors with no parameter calls the parameter node with value 0
+template<class Type>
+DoublyNode<Type>::DoublyNode() : DoublyNode(nullptr)
+{
+}
+// constructor with parameters
+template<class Type>
+DoublyNode<Type>::DoublyNode(cont Type& data)
+{
+    this->key = data;
+}
+// getters for the value of the node
+template<class Type>
+Type& DoublyNode<Type>::getData()
+{
+    return key;
+}
+// setter value of the node
+template<class Type>
+void DoublyNode<Type>::setData(const Type& data)
+{
+    this->key = data;
+}
+// destructor
+template<class Type>
+DoublyNode<Type>::~DoublyNode()
+{
+    // next points to NULL
+    this->left, this->right = nullptr;
+}
+```
 
-### CI/CD
+在类定义中成员函数都非常简单也容易理解，这些方法是：getters，setters，最后是析构函数将指针指向NULL避免指针出错。
 
-使用CI/CD(continuous intgration/Continuous Delivery)工具，在源代码管理系统管理应用代码和基础架构。为了实现这个目标，我大量的使用git，和一些git工作流，在使用groovy自动构建Jenkins，允许yaml人工配置，不能同时使用groovy和shell脚本，我在那块花了很多时间，它作为DevOps静态呈现，即使我现在没有使用我想要的那么多的功能，CI/CD工具也是一个很好的管道。
+Tree-set实现了二叉查找树(BST)。什么是二叉查找树？BST维护了动态改变数据集合的顺序，和排序数组不同的是它的元素不能高效的插入和删除，BST在很多场景中非常有用是因为它在将元素按顺序初入后可以很高效的进行查找。BST最坏的时间复杂度是O(h)，h代表树的高度。
 
-### 安全和权限控制
+<img src="./img/TreeSet_3.png" width="60%" >
 
-最后还配合认证、授权使用LDAP，Keycloak，keycloak也是常见问题，虽然那里有很多工具，就像我说的，我们是顽固的，众所周知的3A(授权、鉴权和访问管理)解决方案就像keycloak是你的工具必须有的。
+树的高度是指从根节点到最远叶子节点其中连线的个数。如上图所示，查找，插入，删除的复杂度是O(log n)。
 
-### 基础设施作为代码
+BST有4个属性：每个节点包含了一个值，左子树的节点值都要小于其父节点的值，右子树的节点值都要大于其父节点的值，基本上，重复的值不允许，就像数学定义中的SET{}。
 
-除了Docker，Vagant，甚至在某些场景下可能的，我又接触到了Terraform，和CloudFormation的简短接触，除了一些带有ESXI实例，你还会把一些云基础设施自动化，在这里角色开始模糊，很多公司需要一些Terraform专家，或者部分Azure DevOps Ninja或AWS Boss，忘记大部分时间，这些工具都在行尾，作为一个好的DevOps角色，你需要很多工具，在DevOps角色中你不会仅仅接触单一的，但是，您正在寻找一些Terraform专家/Azure角色，并成为一个新的Cloud SysAdmin，而不是DevOps角色。
+我们定义的树可以在文件TreeSet.h中找到，我们可以先看到预编译声明#pragma once，template<class Type>声明，成员函数和成员变量。开始，成员变量是私有的。
 
-### 负载均衡和反向代理能力
+```c++
+#pragma once
+#include "DoublyNode.h"
 
-如果你没有接触过Nginx，HaProxy或Traefik或者以他们的实例格式安装，那你就做错了。我配置了负载均衡器，主要作为反向代理，虽然我还没有遇到很多ELB的配置或者他们的Azure对应的配置。
+template <class Type>
+class TreeSet
+{
+    private:
+        // head of the Tree-set, size MEMBER VARIABLES
+        DoublyNode<Type>* root{ nullptr };
+        unsigned int length{ 0 };
 
-### 应用开发
+        DoublyNode<Type>* insertRecursively(DoublyNode<Type> *newNode, DoublyNode<Type> *node);
+        void printRecursively(DoublyNode<Type> *node);
+        // get height of a given node
+        int depthRecursively(const DoublyNode<Type> *node);
+        // search a value in the tree
+        bool searchRecursively(DoublyNode<Type> *node, const Type &data);
+        // delete tree
+        void deleteTree(const DoublyNode<Type> *node);
+        // get balance for factor of node
+        int getBalance(const DoublyNode<Type> *subTree);
+        // AVL rotation
+        DoublyNode<Type>* rightRotate(DoublyNode<Type>* y);
+        DoublyNode<Type>* leftRotate(DoublyNode<Type>* x);
 
-最后但并非最不重要的一点是，是的，我现在也发展成了全栈开发，使用Java和Javascript。我相信作为一个DevOps，在整个解决方案中考虑上下文，实际上会让我成为一个更好的工程师和程序员。也就不会出现，你编译下它你运行它...所以最终，双方都写应用程序线，到支持的基础设施代码，到前面的LB，它们的部署和QA管道。
+    public:
+        TreeSet();
+        TreeSet(const Type &data);
+        TreeSet(DoublyNode<Type>* root);
 
-### 数据库
+        void add(const Type data);
+        void add(DoublyNode<Type> *node);
+        void printSet();
 
-ElasticSearch, PostgreSql , MySql等等。我当前不是DBA，但最终也会配置这些。从连接到ACL，到备份和管理，但我远不是SQL专家，无论如何也要避免在狭小的领域里，成为数据库或者AWS专家。
+        bool isInSet(const Type& data);
+        void remove(const Type& data);
+        void clear();
+        bool isEmpty();
+        int size();
+        ~TreeSet();
+};
+```
 
-### 人文要素
+在公共成员方法中我们能找到基本数据结构的方法来执行基本操作(insert, delete, search and clear)。私有成员方法是递归方法在树的内部执行。我们为什么需要递归？树就是一个递归的数据结构，这意味着树是由简单的同样的数据结构组成。
 
-到目前为止，我已经接触了很多语言和环境，所以除了所有的编码之外，大部分时间，我最终还是和人类交谈，我的工作的一部分实际上是帮助其他有DevOps心态的工程师，简化事情，让他们的生活更容易在整个组织内运行自己的应用程序，缩小Devs和Operation之间的差距。
+第一个函数是插入。方法"void insert(const Type& data)"或"void insert(const DoublyNode<Type> &newNode)"将一个节点插入到树中是共有的，也就是说，这可以从类外面访问，参数可以是Type TreeSet<Type>的值或者已经创建好的节点。内部方法调用私有递归方法(insertRecursively)，这个方法迭代执行整个树结构通过比较data值和其他节点来移动节点直到BST属性分布(小的移到左边，大的移到右边)，直到碰到了叶子节点，然后新的节点添加到叶子节点的子节点。
 
-### Tl;Dr
+<img src="./img/TreeSet_4.png" width="60%" >
 
-Tl;Dr你最终使用了多种技术。因此，DevOps有时被用作“所有行业的杰克“的总称，尽管我并不自称“任何东西的主人“，但仍有很长的路要走。
+上面的图，插入40，必须横向比较其他节点的值：1)40比100小，移到左节点，2)40比20大，移到右节点，3)40比30大，30是叶子节点，移到右子节点。注意左边所有的值都小于100。
 
-希望你喜欢.，希望它给你带来了一些关于DevOps实际做什么的光芒。或者如果你已经在做类似的事情，你发现你的工作和我的工作有一些相似之处
+<img src="./img/TreeSet_5.png" width="60%" >
 
-最后附上一个优秀的DevOps的学习路线图
+```c++
+// insert data a new node
+template<class Type>
+void TreeSet<Type>::add(const Type data)
+{
+    this->add(new DoublyNode<Type>{ data });
+}
 
-<img src="./img/devops-roadmap.png" width="100%" >
+// insert node
+template<class Type>
+void TreeSet<Type>::add(DoublyNode<Type> *newNode)
+{
+    // calling recursive method
+    this->root = insertRecursively(newNode, this->root);
+}
+```
+
+这个过程递归节点，调用方法比较值。查找和插入最坏的时间复杂度就是O(h)其中h是二叉查找树的高度。
+
+<img src="./img/TreeSet_6.png" width="60%" >
+
+```c++
+// inserting node
+template<class Type>
+DoublyNode<Type>* TreeSet<Type>::insertRecursively(DoublyNode<Type>* newNode, DoublyNode<Type>* node)
+{
+    // when node of the tree is node return new node
+    if (node == nullptr)
+    {
+        node = newNode;
+        this->length++;
+        return node;
+    }
+    else if (newNode->getData() < node->getData())
+    {
+        node->left = insertRecursively(newNode, node->left);
+    }
+    else if (newNode->getData() > node->getData())
+    {
+        node->right = insertRecursively(newNode, node->right);
+    }
+    // ...
+}
+```
+
+上面这个图我们可以找到递归方法来插入新的节点，基本情况是当当前节点指向NULL，新的节点可以增加，如果没有，就递归调用，使用比较当前节点和新节点的值来确定继续调用左子树还是右子树。
+
+二叉查找树的插入方法最坏的查询、插入和删除复杂度是O(n)，当BST非平衡退化成为类似链表的结构。
+
+<img src="./img/TreeSet_7.png" width="60%" >
+
+如上图所示，所有的二叉查找树都退化了因为这不是一个完全二叉树，所有的节点都只有一个孩子节点，为了证明这个，我们选择了上图中第一个，插入5，将会耗费O(h)，高度和节点数一样，意味着插入、删除和查找都是O(n)。
+
+有BST最主要的原因是每种操作复杂度接近O(log n)，为了达到这种目标我们要定义和实现平衡二叉查找树。
+
+<img src="./img/TreeSet_8.png" width="60%" >
+
+平衡二叉查找树的不同之处在于左子树和右子树的高度相差不能大于1.就像我前面描述的，树是一个递归的数据结构平衡二叉查找树的概念适用于每个节点和子节点。平衡二叉查找树保持最小的高度和根节点到每个节点的步数小于log(n)。
+
+<img src="./img/TreeSet_9.png" width="60%" >
+
+最后接近完成我们的数据结构Tree-Set(AVL)，我们需要平衡我们的树来实现AVL树的概念。
+
+一个AVL(Adel'son-Vel'skii and E.M.Landis)树是简单的自平衡二叉树，它需要左子树高度和右子树高度相差不能大于1。
+
+AVL树在插入和删除节点时提供了旋转。这里有两种旋转，左旋和右旋。左旋和右旋都执行递归，使得旋转的节点最终成为根节点。
+
+<img src="./img/TreeSet_10.png" width="60%" >
+
+在计算每个子树的高度和为了比较子树高度然后执行旋转是非常重要的，这个方法depthRecursively(const DoublyNode<Type>* node)递归的计算了给定的节点高度然后比较左边和右边子树，它的基本情况是当前节点时NULL，它返回0.
+
+<img src="./img/TreeSet_11.png" width="60%" >
+
+另外一个比较左边和右边子树高度的方法：depthRecursively(const DoublyNode<Type> *node)。这个比较方法返回不同的高度和它调用getBalance(const DoublyNode<Type> *node)。
+
+旋转操作改变很少的指针因此耗费固定时间，所以AVL插入保持平衡二叉树的复杂度O(log n)。
+
+<img src="./img/TreeSet_12.png" width="60%" >
+
+在改变树的每个操作后确保BST实现了AVL概念，必须执行一些二次平衡。其中包含了四种不同的操作：Left-Left case, Left-Right case, Right-Right case和Right-Left case。
+
+<img src="./img/TreeSet_13.png" width="60%" >
+
+第一种情况，树旋转到右边，在上面的例子中，节点50被分配为新的根节点，它的右指针现在成为100的左指针。
+
+<img src="./img/TreeSet_14.png" width="60%" >
+
+第二种情况和第一种类似，树旋转到左边重新分配根节点移动指针。
+
+<img src="./img/TreeSet_15.png" width="60%" >
+
+第三种情况更复杂一点，但是我们仔细看下就发现，它仅仅是子树左旋，然后子树再右旋得到一个新的根。这个和最后一种情况类似。
+
+<img src="./img/TreeSet_16.png" width="60%" >
+
+上面的几种情况实现起来如下：
+
+<img src="./img/TreeSet_17.png" width="60%" >
+
+下一个操作是查找，这个非常简单，TreeSet类定义了isInSet(const Type &data)调用私有方法searchRecursively(DoublyNode<Type> *node, const Type &data)，这个方法和插入类似但是返回了一个bool变量标识着是否找到。
+
+查找的基本原则是当前节点是NULL，返回false。如果值被找到，返回true然后被分配给其他调用。
+
+<img src="./img/TreeSet_18.png" width="60%" >
+
+注意如果你需要下载代码，所有的方法在不同的位置在TreeSet.cpp中。
+
+<img src="./img/TreeSet_19.png" width="60%" >
+
+[To download the file go to my Github](https://github.com/terselich/TreeSet)
