@@ -1,316 +1,223 @@
-# Windows进程间通信
+# Windows动态链接库
 
-最近看了下Windows进程间通信的内容，感觉和之前看过的Unix进程间通讯还挺像的。这里记录下Windows进程间通信的几种方式。
+动态链接库在我们平时使用的软件中几乎随处可见，动态链接库可以使软件的模块化更加灵活，有了动态链接库可以使得程序调用可以跨语言，同时也可以节省磁盘空间或者内存。动态链接库加载可以分为隐式加载和显式加载。
 
-## 1. 剪贴板
+## Win32 DLL的创建
 
-剪贴板是我们平常常用的功能，在之前做过的B/S开发中也有用到过剪贴板的功能。在MFC中往剪贴板写入数据其实是比较方便的，打开剪贴板主要就是用了CWnd类的OpenClipBoard函数来实现，在打开后调用SetClipboardData来设置剪贴板内容，最后调用CloseClipboard来关闭剪贴板。同样，从剪贴板读取内容也是先打开剪贴板，之后先判断剪贴板是否为激活状态，调用IsClipboardFormatAvailable判断即可，通过调用GetClipboardData来从剪贴板获取数据。
-
-主要的功能可以参考下面的示例：
+使用VC++新建一个Win32 Project，Application Type选择DLL，这里创建一个Dll1.cpp为例说明：
 
 ```c++
-void CClipboardDlg::OnBnClickedBtnSend()
+_declspec(dllexport) int add(int a, int b)
 {
-	if (OpenClipboard())
-	{
-		CString str;
-		HANDLE hClip;
-		char *pBuf;
-		EmptyClipboard();
-		GetDlgItemText(IDC_EDIT_SEND, str);
-		hClip = GlobalAlloc(GMEM_MOVEABLE, str.GetLength() + 1);
-		pBuf = (char*)GlobalLock(hClip);
-		strcpy(pBuf, str);
-		GlobalUnlock(hClip);
-		SetClipboardData(CF_TEXT, hClip);
-		CloseClipboard();
-	}
+	return a + b;
 }
 
-
-void CClipboardDlg::OnBnClickedBtnRecv()
+_declspec(dllexport) int subtract(int a, int b)
 {
-	if (OpenClipboard())
-	{
-		if (IsClipboardFormatAvailable(CF_TEXT))
-		{
-			HANDLE hClip;
-			char *pBuf;
-			hClip = GetClipboardData(CF_TEXT);
-			pBuf = (char*)GlobalLock(hClip);
-			GlobalUnlock(hClip);
-			SetDlgItemText(IDC_EDIT_RECV, pBuf);
-		}
-		CloseClipboard();
-	}
+	return a - b;
 }
 ```
 
-## 2. 匿名管道
+编译完成后，通过使用VC自带的dumpbin命令行工具可以看出导出函数：
 
-匿名管道是一个未命名的单向管道，通常用来在一个父进程和一个子进程中间传递数据。所以匿名管道适合于本地机器上父子进程间的通讯。
+```cmd
+Dumpbin -exports dll1.dll
+```
 
-匿名管道实现中，父进程可以作为服务端，子进程作为客户端。
+### 隐式链接方式
 
-### 2.1 服务端实现步骤
+创建一个基于对话框的MFC程序，工程取名为DllTest1，对话框增加两个按钮分别为Add和Subtract。
 
-首先，要创建匿名管道来进行通信。通过调用CreatePipe来创建匿名管道，前两个参数分别传入读句柄和写句柄。创建成功后需要创建子进程，可以通过CreateProcess来实现。
+#### 1. 使用extern声明外部函数
 
-实现代码：
+在调用add和subtract之前需要先声明函数是外部定义的：
 
 ```c++
-void CParentView::OnPipeCreate()
+extern int add(int a, int b);
+extern int subtract(int a, int b);
+```
+
+在按钮的消息函数实现中调用add和subtract函数：
+
+```c++
+void CDllTestDlg::OnBnClickedBtnAdd()
 {
-	// TODO: Add your command handler code here
-	SECURITY_ATTRIBUTES sa;
-	sa.bInheritHandle = TRUE;
-	sa.lpSecurityDescriptor = NULL;
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	if (!CreatePipe(&hRead, &hWrite, &sa, 0))
-	{
-		MessageBox(_T("Create pipe failed!"));
-		return;
-	}
+	// TODO: Add your control notification handler code here
+	CString str;
+	str.Format("5+3=%d", add(5, 3));
+	MessageBox(_T(str));
+}
 
-	STARTUPINFO sui;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&sui, sizeof(STARTUPINFO));
-	sui.cb = sizeof(STARTUPINFO);
-	sui.dwFlags = STARTF_USESTDHANDLES;
-	sui.hStdInput = hRead;
-	sui.hStdOutput = hWrite;
-	sui.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
-	if (!CreateProcess("Child.exe", NULL, NULL, NULL,
-		TRUE, 0, NULL, NULL, &sui, &pi))
-	{
-		CloseHandle(hRead);
-		CloseHandle(hWrite);
-		hRead = NULL;
-		hWrite = NULL;
-		MessageBox(_T("Create process failed!"));
-		return;
-	}
-	else
-	{
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-	}
+void CDllTestDlg::OnBnClickedBtnSubtract()
+{
+	// TODO: Add your control notification handler code here
+	CString str;
+	str.Format("5-3=%d", subtract(5, 3));
+	MessageBox(_T(str));
 }
 ```
 
-需要注意的是父进程在打开子进程应用程序时，需要传入正确的应用程序路径。
+在链接时要指定动态库的名称，设置路径：Configuration Properties->Linker->Input->Additional Dependencies
 
-服务端读取数据通过调用ReadFile，写数据调用WriteFile来完成。
+增加lib名称：..\Debug\Dll1.lib;
+
+重新编译后点击Add按钮和Subtract按钮可以看到运算结果正常展示。
+
+#### 2. 优化函数导出C++类或者成员函数
+
+为了让Dll1这个工程可以导出给别的工程也可以自己使用，增加Dll1.h头文件，这里增加一个类Point用来表示坐标：
 
 ```c++
-void CParentView::OnPipeRead()
-{
-	// TODO: Add your command handler code here
-	char buf[100];
-	DWORD dwRead;
-	if (!ReadFile(hRead, buf, 100, &dwRead, NULL))
-	{
-		MessageBox(_T("Read data failed!"));
-		return;
-	}
-	MessageBox(_T(buf));
-}
+#ifdef DLL1_API
+#else
+#define DLL1_API _declspec(dllimport)
+#endif
 
+DLL1_API int add(int a, int b);
+DLL1_API int subtract(int a, int b);
 
-void CParentView::OnPipeWrite()
+class DLL1_API Point
 {
-	// TODO: Add your command handler code here
-	char buf[] = "http://www.microsoft.com";
-	DWORD dwWrite;
-	if (!WriteFile(hWrite, buf, strlen(buf) + 1, &dwWrite, NULL))
-	{
-		MessageBox(_T("Write data failed!"));
-		return;
-	}
+public:
+	void /*DLL1_API*/ output(int x, int y);
+	void test();
+};#ifdef DLL1_API
+#else
+#define DLL1_API extern "C" _declspec(dllimport)
+#endif
+
+DLL1_API int add(int a, int b);
+DLL1_API int subtract(int a, int b);
+```
+
+通过在Dll1.cpp中声明宏来动态判断头文件中方法是否导出：
+
+```c++
+#ifdef DLL1_API
+#else
+#define DLL1_API _declspec(dllimport)
+#endif
+
+DLL1_API int add(int a, int b);
+DLL1_API int subtract(int a, int b);
+
+class DLL1_API Point
+{
+public:
+	void /*DLL1_API*/ output(int x, int y);
+	void test();
+};
+```
+
+重新编译Dll1工程后，在DllTest1中增加一个按钮Output，用来调用Point类的output函数显示坐标：
+
+```c++
+void CDllTestDlg::OnBnClickedBtnOutput()
+{
+	Point pt;
+	pt.output(5, 3);
 }
 ```
 
-### 2.2 客户端实现步骤
+这样就可以成功调用output来输出坐标，同样add和subtract也可以正常调用。这里演示的是导出整个类，也可以导出output方法。
 
-客户端在初始化时需要先获取读、写的父进程匿名管道句柄，在MFC中客户端通过定义虚函数OnInitialUpdate来实现初始化获取父进程的读、写句柄：
+#### 3. 解决名字改变问题
 
-```c++
-void CChildView::OnInitialUpdate()
-{
-	CView::OnInitialUpdate();
-
-	hRead = GetStdHandle(STD_INPUT_HANDLE);
-	hWrite = GetStdHandle(STD_OUTPUT_HANDLE);
-}
-
-```
-
-在获取成功后，可以和服务端类似读写数据：
+因为C++编译对导出函数的名字进行了改编，而且不同编译器改编规则不同就会导致导出名字不一样，客户端调用就会无法使用。这样就可以通过在导出的时候增加extern "C"来限定导出函数的名称不发生改变。
 
 ```c++
-void CChildView::OnPipeRead()
+//h
+
+#ifdef DLL1_API
+#else
+#define DLL1_API extern "C" _declspec(dllimport)
+#endif
+
+DLL1_API int add(int a, int b);
+DLL1_API int subtract(int a, int b);
+
+//cpp
+
+#define DLL1_API extern "C" _declspec(dllexport)
+
+int add(int a, int b)
 {
-	// TODO: Add your command handler code here
-	char buf[100];
-	DWORD dwRead;
-	if (!ReadFile(hRead, buf, 100, &dwRead, NULL))
-	{
-		MessageBox(_T("Read data failed...!"));
-		return;
-	}
-	MessageBox(buf);
+	return a + b;
 }
 
-
-void CChildView::OnPipeWrite()
+int subtract(int a, int b)
 {
-	// TODO: Add your command handler code here
-	char buf[] = "Pipe test routine";
-	DWORD dwWrite;
-	if (!WriteFile(hWrite, buf, strlen(buf) + 1, &dwWrite, NULL))
-	{
-		MessageBox(_T("Write data failed...!"));
-		return;
-	}
+	return a - b;
 }
 ```
 
-## 3. 命名管道
+这样可以解决名字变化的问题，但是无法支持导出类的成员函数，因此只能用于导出全局函数这种情况。
 
-命名管道可以通过网络来进行进程间的通信，它屏蔽了网络底层的细节。需要注意的是命名管道只能在服务端创建，客户端只能读写数据。创建命名管道的服务器只能在Windows NT和Windows 2000之后的版本才可以，客户端没有要求。
-
-### 3.1 服务端实现步骤
-
-创建命名管道通过调用CreateNamedPipe来进行创建，创建成功后需要创建时间对象，调用CreateEventA来进行创建。然后通过调用ConnectNamedPipe来连接命名管道，最后调用WaitForSingleObject来等待命名管道进行数据通信，最后关闭。
+但是，如果导出函数采用标准调用约定，在声明函数时添加_stdcall关键字：
 
 ```c++
-void CNamedPipeSrvView::OnPipeCreate()
+DLL1_API int _stdcall add(int a, int b);
+DLL1_API int _stdcall subtract(int a, int b);
+
+int _stdcall add(int a, int b)
 {
-	// TODO: Add your command handler code here
-	hPipe = CreateNamedPipe("\\\\.\\pipe\\MyPipe",
-		PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
-		0, 1, 1024, 1024, 0, NULL);
-	if (INVALID_HANDLE_VALUE == hPipe){
-		MessageBox(_T("创建命名管道失败"));
-		hPipe = NULL;
-		return;
-	}
+    return a + b;
+}
 
-	// 创建匿名的人工重置对象
-	HANDLE hEvent;
-	hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (!hEvent)
-	{
-		MessageBox(_T("创建事件对象失败!"));
-		CloseHandle(hPipe);
-		hPipe = NULL;
-		return;
-	}
-
-	OVERLAPPED ovlap;
-	ZeroMemory(&ovlap, sizeof(OVERLAPPED));
-	ovlap.hEvent = hEvent;
-	if (!ConnectNamedPipe(hPipe, &ovlap))
-	{
-		if (ERROR_IO_PENDING != GetLastError())
-		{
-			MessageBox(_T("等待客户端连接失败！"));
-			CloseHandle(hPipe);
-			CloseHandle(hEvent);
-			hPipe = NULL;
-			return;
-		}
-	}
-	if (WAIT_FAILED == WaitForSingleObject(hEvent, INFINITE))
-	{
-		MessageBox(_T("等待对象失败！"));
-		CloseHandle(hPipe);
-		CloseHandle(hEvent);
-		hPipe = NULL;
-		return;
-	}
-	CloseHandle(hEvent);
+int _stdcall subtract(int a, int b)
+{
+    return a - b;
 }
 ```
 
-创建完成后，服务端可以通过命名管道读写数据，实现方式和匿名管道一样。
+这样编译完成后，使用dumpbin命令查看，函数名还是发生变化了。这种情况下，可以通过模块定义文件(DEF)的方式来解决名字改编问题。
 
-### 3.2 客户端实现步骤
+### 显示链接方式
 
-客户端首先要连接命名管道，通过调用WaitNamedPipe函数来完成，然后使用CreateFile函数开始创建命名管道文件。
+新建一个动态库工程Dll2，添加Dll2.cpp
 
 ```c++
-void CNamedPipeCltView::OnPipeConnect()
+int _stdcall add(int a, int b)
 {
-	// TODO: Add your command handler code here
-	if (!WaitNamedPipe("\\\\.\\pipe\\MyPipe", NMPWAIT_WAIT_FOREVER))
-	{
-		MessageBox(_T("当前没有可利用的命名管道实例!"));
-		return;
-	}
-	hPipe = CreateFile("\\\\.\\pipe\\MyPipe", GENERIC_READ | GENERIC_WRITE,
-		0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (INVALID_HANDLE_VALUE == hPipe)
-	{
-		MessageBox(_T("打开命名管道失败！"));
-		hPipe = NULL;
-		return;
-	}
+	return a + b;
+}
+
+int subtract(int a, int b)
+{
+	return a - b;
 }
 ```
 
-客户端的读写命名管道可以服用前面匿名管道的实现。
+添加模块定义文件，Dll2.def:
 
-## 4. 邮槽
+```def
+LIBRARY Dll2
 
-邮槽是基于广播通信体系设计的，我理解应该是类似UDP协议的实现，可以一对多进行广播。邮槽的服务端和客户端实现比较简单。
+EXPORTS
+add
+subtract
+```
 
-示例代码：
+修改调用的消息映射函数：
 
 ```c++
-void CMailslotSrvView::OnMailslotRecv()
+void CDllTest2Dlg::OnBtnAdd()
 {
-	// TODO: Add your command handler code here
-	HANDLE hMailslot;
-	hMailslot = CreateMailslot("\\\\.\\mailslot\\MyMailslot", 0,
-		MAILSLOT_WAIT_FOREVER, NULL);
-	if (INVALID_HANDLE_VALUE == hMailslot)
+	HINSTANCE hInst;
+	hInst = LoadLibrary("Dll2.dll");
+	//typedef int (*ADDPROC)(int a, int b);	// define function pointer type
+	typedef int (_stdcall *ADDPROC)(int a, int b);
+	ADDPROC Add = (ADDPROC)GetProcAddress(hInst, "add");	// get export function
+	if (!Add)
 	{
-		MessageBox(_T("创建邮槽失败！"));
+		MessageBox(_T("获取函数地址失败！"));
 		return;
 	}
-	char buf[100];
-	DWORD dwRead;
-	if (!ReadFile(hMailslot, buf, 100, &dwRead, NULL))
-	{
-		MessageBox(_T("读取数据失败！"));
-		CloseHandle(hMailslot);
-		return;
-	}
-	MessageBox(buf);
-	CloseHandle(hMailslot);
-}
-
-void CMailslotCltView::OnMailslotSend()
-{
-	// TODO: Add your command handler code here
-	HANDLE hMailslot;
-	hMailslot = CreateFile("\\\\.\\mailslot\\MyMailslot", GENERIC_WRITE,
-		FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (INVALID_HANDLE_VALUE == hMailslot)
-	{
-		MessageBox(_T("打开邮槽失败！"));
-		return;
-	}
-	char buf[] = "http://www.zte.com.cn";
-	DWORD dwWrite;
-	if (!WriteFile(hMailslot, buf, strlen(buf) + 1, &dwWrite, NULL))
-	{
-		MessageBox(_T("写入数据失败！"));
-		CloseHandle(hMailslot);
-		return;
-	}
-	CloseHandle(hMailslot);
+	CString str;
+	str.Format("5+3=%d", Add(5, 3));
+	MessageBox(str);
 }
 ```
+
+当DLL中导出函数采用的是标准调用约定时，访问该DLL的客户端程序也需要采用该约定来访问相应的导出函数。
