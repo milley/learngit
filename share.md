@@ -1,223 +1,160 @@
-# Windows动态链接库
+# HOOK
 
-动态链接库在我们平时使用的软件中几乎随处可见，动态链接库可以使软件的模块化更加灵活，有了动态链接库可以使得程序调用可以跨语言，同时也可以节省磁盘空间或者内存。动态链接库加载可以分为隐式加载和显式加载。
+在Windows应用程序中点击鼠标左键，操作系统会感知到这个事件然后产生鼠标左键按键消息，通过消息队列，应用程序通过调用GetMessage函数取出消息，然后调用DispatchMessage函数将这条消息调度给操作系统，操作系统会调用在设计窗口类时指定的应用程序窗口过程对这个消息进行处理。
 
-## Win32 DLL的创建
-
-使用VC++新建一个Win32 Project，Application Type选择DLL，这里创建一个Dll1.cpp为例说明：
+在有的时候需要对某些消息进行屏蔽，这里就可以使用到HOOK技术。HOOK程序在实现时，可以通过setWindowsHookEx函数来安装一个钩子过程。setWindowsHookEx实际是一个宏，在非UNICODE编码定义的是SetWindowsHookExA函数。函数定义如下：
 
 ```c++
-_declspec(dllexport) int add(int a, int b)
-{
-	return a + b;
-}
-
-_declspec(dllexport) int subtract(int a, int b)
-{
-	return a - b;
-}
+HHOOK SetWindowsHookExA(
+  int       idHook,
+  HOOKPROC  lpfn,
+  HINSTANCE hmod,
+  DWORD     dwThreadId
+);
 ```
 
-编译完成后，通过使用VC自带的dumpbin命令行工具可以看出导出函数：
+其中idHook是表示hook的类型。
 
-```cmd
-Dumpbin -exports dll1.dll
-```
+|Value|Meaning|
+| --- | ----- |
+|WH_CALLWNDPROC 4|Installs a hook procedure that monitors messages before the system sends them to the destination window procedure. For more information, see the CallWndProc hook procedure.|
+|WH_CALLWNDPROCRET 12|Installs a hook procedure that monitors messages after they have been processed by the destination window procedure. For more information, see the CallWndRetProc hook procedure.|
+|WH_CBT 5|Installs a hook procedure that receives notifications useful to a CBT application. For more information, see the CBTProc hook procedure.|
+|WH_DEBUG 9|Installs a hook procedure useful for debugging other hook procedures. For more information, see the DebugProc hook procedure.|
+|WH_FOREGROUNDIDLE 11|Installs a hook procedure that will be called when the application's foreground thread is about to become idle. This hook is useful for performing low priority tasks during idle time. For more information, see the ForegroundIdleProc hook procedure.|
+|WH_GETMESSAGE 3|Installs a hook procedure that monitors messages posted to a message queue. For more information, see the GetMsgProc hook procedure.|
+|WH_JOURNALPLAYBACK 1|Installs a hook procedure that posts messages previously recorded by a WH_JOURNALRECORD hook procedure. For more information, see the JournalPlaybackProc hook procedure.|
+|WH_JOURNALRECORD 0|Installs a hook procedure that records input messages posted to the system message queue. This hook is useful for recording macros. For more information, see the JournalRecordProc hook procedure.|
+|WH_KEYBOARD 2|Installs a hook procedure that monitors keystroke messages. For more information, see the KeyboardProc hook procedure.|
+|WH_KEYBOARD_LL 13|Installs a hook procedure that monitors low-level keyboard input events. For more information, see the LowLevelKeyboardProc hook procedure.|
+|WH_MOUSE 7|Installs a hook procedure that monitors mouse messages. For more information, see the MouseProc hook procedure.|
+|WH_MOUSE_LL 14|Installs a hook procedure that monitors low-level mouse input events. For more information, see the LowLevelMouseProc hook procedure.|
+|WH_MSGFILTER -1|Installs a hook procedure that monitors messages generated as a result of an input event in a dialog box, message box, menu, or scroll bar. For more information, see the MessageProc hook procedure.|
+|WH_SHELL 10|Installs a hook procedure that receives notifications useful to shell applications. For more information, see the ShellProc hook procedure.|
+|WH_SYSMSGFILTER 6|Installs a hook procedure that monitors messages generated as a result of an input event in a dialog box, message box, menu, or scroll bar. The hook procedure monitors these messages for all applications in the same desktop as the calling thread. For more information, see the SysMsgProc hook procedure.|
 
-### 隐式链接方式
+lpfn表示指向钩子程序的指针。如果dwThreadId为0，或者指定了一个其他进程创建的线程标识符，那么参数lpfn必须指向一个位于DLL动态库中的钩子过程。否则，lpfn指向当前进程相关的代码中定义的一个钩子过程。
 
-创建一个基于对话框的MFC程序，工程取名为DllTest1，对话框增加两个按钮分别为Add和Subtract。
+hmod指定lpfn指向的钩子过程所在的DLL句柄。如果参数dwThreadId指定的线程由当前进程创建，并且相应的钩子过程定义于当前进程相关的代码中，那么必须将参数hmod设置为NULL。
 
-#### 1. 使用extern声明外部函数
+dwThreadId指定与钩子过程相关的线程标识。如果其值为0，那么安装的钩子过程将于桌面上运行的所有线程有关。
 
-在调用add和subtract之前需要先声明函数是外部定义的：
+如果调用成功，返回值就是所安装的钩子过程的句柄。
+
+## 进程内钩子
+
+新建一个基于对话框的MFC工程，这里用屏蔽鼠标左键来举例。首先安装一个鼠标钩子：
 
 ```c++
-extern int add(int a, int b);
-extern int subtract(int a, int b);
+HHOOK g_hMouse = NULL;
+LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	return 1;
+}
 ```
 
-在按钮的消息函数实现中调用add和subtract函数：
+在对话框初始化函数中调用：
 
 ```c++
-void CDllTestDlg::OnBnClickedBtnAdd()
-{
-	// TODO: Add your control notification handler code here
-	CString str;
-	str.Format("5+3=%d", add(5, 3));
-	MessageBox(_T(str));
-}
-
-
-void CDllTestDlg::OnBnClickedBtnSubtract()
-{
-	// TODO: Add your control notification handler code here
-	CString str;
-	str.Format("5-3=%d", subtract(5, 3));
-	MessageBox(_T(str));
-}
+g_hMouse = SetWindowsHookEx(WH_MOUSE, MouseProc, NULL, GetCurrentThreadId());
 ```
 
-在链接时要指定动态库的名称，设置路径：Configuration Properties->Linker->Input->Additional Dependencies
+以上代码就会屏蔽掉鼠标按键，需要关闭对话框只能通过把鼠标移动到光标上按下空格或者回车，也可以通过ALT+F4来完成退出窗口。
 
-增加lib名称：..\Debug\Dll1.lib;
-
-重新编译后点击Add按钮和Subtract按钮可以看到运算结果正常展示。
-
-#### 2. 优化函数导出C++类或者成员函数
-
-为了让Dll1这个工程可以导出给别的工程也可以自己使用，增加Dll1.h头文件，这里增加一个类Point用来表示坐标：
+除了鼠标事件，还可以操作键盘事件。这里再增加一个屏蔽ALT+F4按键，但是可以通过按下F2按键来关闭窗口。需要先增加一个全局变量g_hWnd来表示窗口句柄，还有一个键盘钩子句柄。
 
 ```c++
-#ifdef DLL1_API
-#else
-#define DLL1_API _declspec(dllimport)
-#endif
-
-DLL1_API int add(int a, int b);
-DLL1_API int subtract(int a, int b);
-
-class DLL1_API Point
-{
-public:
-	void /*DLL1_API*/ output(int x, int y);
-	void test();
-};#ifdef DLL1_API
-#else
-#define DLL1_API extern "C" _declspec(dllimport)
-#endif
-
-DLL1_API int add(int a, int b);
-DLL1_API int subtract(int a, int b);
+HHOOK g_hKeyboard = NULL;
+HWND g_hWnd = NULL;
 ```
 
-通过在Dll1.cpp中声明宏来动态判断头文件中方法是否导出：
+在键盘屏蔽钩子中首先判断按下的键是否为ALT+F4的组合键，如果是则屏蔽。如果按下的是F2则调用SendMessage来给窗口发送Close消息用来关闭窗口。
 
 ```c++
-#ifdef DLL1_API
-#else
-#define DLL1_API _declspec(dllimport)
-#endif
-
-DLL1_API int add(int a, int b);
-DLL1_API int subtract(int a, int b);
-
-class DLL1_API Point
+LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-public:
-	void /*DLL1_API*/ output(int x, int y);
-	void test();
-};
+	if (VK_F4 == wParam && (1 == (lParam >> 29 & 1)))
+	{
+		return 1;
+	}
+	if (VK_F2 == wParam)
+	{
+		::SendMessage(g_hWnd, WM_CLOSE, 0, 0);
+		UnhookWindowsHookEx(g_hMouse);
+		UnhookWindowsHookEx(g_hKeyboard);
+	}
+	return CallNextHookEx(g_hKeyboard, nCode, wParam, lParam);
+}
 ```
 
-重新编译Dll1工程后，在DllTest1中增加一个按钮Output，用来调用Point类的output函数显示坐标：
+同样，在窗口初始化函数时调用键盘钩子：
 
 ```c++
-void CDllTestDlg::OnBnClickedBtnOutput()
-{
-	Point pt;
-	pt.output(5, 3);
-}
+g_hWnd = m_hWnd;
+g_hKeyboard = SetWindowsHookEx(WH_KEYBOARD, KeyboardProc, NULL, GetCurrentThreadId());
 ```
 
-这样就可以成功调用output来输出坐标，同样add和subtract也可以正常调用。这里演示的是导出整个类，也可以导出output方法。
+这样就可以实现上面屏蔽ALT+F4按键，可以通过F2来关闭窗口的功能。
 
-#### 3. 解决名字改变问题
+## 全局钩子
 
-因为C++编译对导出函数的名字进行了改编，而且不同编译器改编规则不同就会导致导出名字不一样，客户端调用就会无法使用。这样就可以通过在导出的时候增加extern "C"来限定导出函数的名称不发生改变。
+根据前面介绍，如果想让安装的钩子过程与所有进程相关，应该将SetWindowHookEx函数的第四个参数设置为0，并将它的第三个参数指定为安装钩子过程的代码所在的DLL的句柄。
+
+首先编写一个安装钩子过程的DLL，新建一个Win32 Dynamic Link Library类型的工程，新建Hook工程并且新建一个源文件Hook.cpp：
 
 ```c++
-//h
+#include <windows.h>
 
-#ifdef DLL1_API
-#else
-#define DLL1_API extern "C" _declspec(dllimport)
-#endif
+HHOOK g_hMouse = NULL;
+HHOOK g_hKeyboard = NULL;
+HWND g_hWnd;
 
-DLL1_API int add(int a, int b);
-DLL1_API int subtract(int a, int b);
-
-//cpp
-
-#define DLL1_API extern "C" _declspec(dllexport)
-
-int add(int a, int b)
+LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	return a + b;
+	return 1;
 }
 
-int subtract(int a, int b)
+LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	return a - b;
-}
-```
-
-这样可以解决名字变化的问题，但是无法支持导出类的成员函数，因此只能用于导出全局函数这种情况。
-
-但是，如果导出函数采用标准调用约定，在声明函数时添加_stdcall关键字：
-
-```c++
-DLL1_API int _stdcall add(int a, int b);
-DLL1_API int _stdcall subtract(int a, int b);
-
-int _stdcall add(int a, int b)
-{
-    return a + b;
+	if (VK_F2 == wParam)
+	{
+		SendMessage(g_hWnd, WM_CLOSE, 0, 0);
+		UnhookWindowsHookEx(g_hMouse);
+		UnhookWindowsHookEx(g_hKeyboard);
+	}
+	return 1;
 }
 
-int _stdcall subtract(int a, int b)
+void SetHook(HWND hWnd)
 {
-    return a - b;
+	g_hWnd = hWnd;
+	g_hMouse = SetWindowsHookEx(WH_MOUSE, MouseProc, GetModuleHandle("Hook"), 0);
+	g_hKeyboard = SetWindowsHookEx(WH_KEYBOARD, KeyboardProc, GetModuleHandle("Hook"), 0);
 }
 ```
 
-这样编译完成后，使用dumpbin命令查看，函数名还是发生变化了。这种情况下，可以通过模块定义文件(DEF)的方式来解决名字改编问题。
-
-### 显示链接方式
-
-新建一个动态库工程Dll2，添加Dll2.cpp
-
-```c++
-int _stdcall add(int a, int b)
-{
-	return a + b;
-}
-
-int subtract(int a, int b)
-{
-	return a - b;
-}
-```
-
-添加模块定义文件，Dll2.def:
+MouseProc和KeyboardProc和前面一样。在SetHook函数中调用鼠标和键盘钩子，其第三个参数都是DLL模块的句柄，第四个参数都是0。再定义一个模块定义文件Hook.def，用来定义导出函数：
 
 ```def
-LIBRARY Dll2
-
+LIBRARY Hook
 EXPORTS
-add
-subtract
+SetHook @1
 ```
 
-修改调用的消息映射函数：
+这样编译完成后会生成一个Hook.dll，可以用客户端程序来调用此动态库用来演示屏蔽按键。新建一个基于对话框的WIN32工程，首先在对话框的头文件中声明SetHook函数：
 
 ```c++
-void CDllTest2Dlg::OnBtnAdd()
-{
-	HINSTANCE hInst;
-	hInst = LoadLibrary("Dll2.dll");
-	//typedef int (*ADDPROC)(int a, int b);	// define function pointer type
-	typedef int (_stdcall *ADDPROC)(int a, int b);
-	ADDPROC Add = (ADDPROC)GetProcAddress(hInst, "add");	// get export function
-	if (!Add)
-	{
-		MessageBox(_T("获取函数地址失败！"));
-		return;
-	}
-	CString str;
-	str.Format("5+3=%d", Add(5, 3));
-	MessageBox(str);
-}
+_declspec(dllimport) void SetHook(HWND hwnd);
 ```
 
-当DLL中导出函数采用的是标准调用约定时，访问该DLL的客户端程序也需要采用该约定来访问相应的导出函数。
+在对话框初始化方法中，首先定义了2个变量cxScreen和cyScreen用来设置屏幕的宽度和高度。为了得到宽度和高度又调用了GetSystemMetrics函数，通过SetWindowPos来设置窗口大小，然后调用SetHook来屏蔽鼠标按键和激活F2关闭窗口的功能：
+
+```c++
+int cxScreen, cyScreen;
+cxScreen = GetSystemMetrics(SM_CXSCREEN);
+cyScreen = GetSystemMetrics(SM_CYSCREEN);
+SetWindowPos(&wndTopMost, 0, 0, cxScreen, cyScreen, SWP_SHOWWINDOW);
+SetHook(m_hWnd);
+```
+
+运行程序后就会发现当前对话框会最大化平铺到当前窗口，鼠标按键也已经屏蔽，只有按下F2才会退出当前对话框。
