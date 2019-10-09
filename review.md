@@ -1,259 +1,237 @@
-# C++中的Tree-Set数据结构
+# 类对比数据结构
 
-[Tree-Set data structure in C++](https://link.medium.com/doFxDJ9w9Z)
+[Classes vs. Data Structures](https://blog.cleancoder.com/uncle-bob/2019/06/16/ObjectsAndDataStructures.html)
 
-你知道什么是二叉查找树和set在数学中的概念吗？在这篇文章中我将会使用set的属性来构建一个二叉树，自平衡和可以支持各种数据类型(从你拥有的内置对象)，使用C++的超级特性模板。
-
-树是一种复杂的数据结构，大多数在树上执行的函数都需要递归调用。这个练习将会通过递归训练我们的大脑，理解如何构建一个二叉树，AVL树如何自平衡和使用二叉树优先于其他数据结构的不同原因，包括一个简单的复杂性分析。
+> 什么是一个类？
 
-<img src="./img/TreeSet_1.png" width="60%" >
-
-如果一棵树的所有子树不超过2个我们就把这棵树称作二叉树，因此，一个子节点不存在通常就是指向NULL。一个完全二叉树是指除了最后一级其余的层级都有左右子节点。树的一些相关术语有：Edge(两个节点中间的连接线)，子节点和父节点，根节点(所有节点最高的祖先节点)和叶子节点(没有子节点的节点)。
-
-<img src="./img/TreeSet_2.png" width="60%" >
-
-首先，我为二叉查找树定义了一个类DoublyNode，它意味着所有的节点最多只能有2个子节点，用另外一种说法就是每个节点有2个指针(left:prev或者right:next)和一个数据value<Type>，还有一些成员变量和函数定义。
-
-<img src="./img/TreeSet_2.png" width="60%" >
-
-在DoublyNode类中，头文件"DoublyNode.h"包含了#pragma once和一个模板来使节点灵活的支持不同数据类型template<class Type>，类定义了一个私有的成员变量Type data和两个公共的指针Type(left和right)，指针将会初始化成NULL(C++11中的nullptr)整体的C++11构成"Type *left{nullptr}, *right{rightptr};"。
-
-```c++
-#pragma once
-
-template<class Type>
-class DoublyNode
-{
-    private:
-        Type key;
-    
-    public:
-        DoublyNode<Type> *left{ nullptr }, *right{ nullptr };
-
-        DoublyNode();
-        DoublyNode(const Type& data);
-
-        // getter and setter
-        Type& getData();
-        void setData(const Type& data);
-
-        // destructor
-        ~DoublyNode();
-};
-```
-
-为什么要使用#pragma once或者#infdef DOUBLYNODE_H #def DOUBLYNODE_H #endif？这是为了在编译文件时只引入一次。所有的成员函数都是public，两个构造函数(一个没有参数一个有Type value参数)，一个setter用来给节点设置值和一个getter用来从节点取值，跟随OOP封装概念。
-
-类DoublyNode和.cpp文件中5-13行是两个构造方法，这里我只用了带参数的定义，当data值是以参数传到节点，right和left指针指向{ nullptr }。
-
-```c++
-#include "DoublyNode.h"
-
-// constructors with no parameter calls the parameter node with value 0
-template<class Type>
-DoublyNode<Type>::DoublyNode() : DoublyNode(nullptr)
-{
-}
-// constructor with parameters
-template<class Type>
-DoublyNode<Type>::DoublyNode(cont Type& data)
-{
-    this->key = data;
-}
-// getters for the value of the node
-template<class Type>
-Type& DoublyNode<Type>::getData()
-{
-    return key;
-}
-// setter value of the node
-template<class Type>
-void DoublyNode<Type>::setData(const Type& data)
-{
-    this->key = data;
-}
-// destructor
-template<class Type>
-DoublyNode<Type>::~DoublyNode()
-{
-    // next points to NULL
-    this->left, this->right = nullptr;
-}
-```
-
-在类定义中成员函数都非常简单也容易理解，这些方法是：getters，setters，最后是析构函数将指针指向NULL避免指针出错。
-
-Tree-set实现了二叉查找树(BST)。什么是二叉查找树？BST维护了动态改变数据集合的顺序，和排序数组不同的是它的元素不能高效的插入和删除，BST在很多场景中非常有用是因为它在将元素按顺序初入后可以很高效的进行查找。BST最坏的时间复杂度是O(h)，h代表树的高度。
-
-<img src="./img/TreeSet_3.png" width="60%" >
-
-树的高度是指从根节点到最远叶子节点其中连线的个数。如上图所示，查找，插入，删除的复杂度是O(log n)。
-
-BST有4个属性：每个节点包含了一个值，左子树的节点值都要小于其父节点的值，右子树的节点值都要大于其父节点的值，基本上，重复的值不允许，就像数学定义中的SET{}。
-
-我们定义的树可以在文件TreeSet.h中找到，我们可以先看到预编译声明#pragma once，template<class Type>声明，成员函数和成员变量。开始，成员变量是私有的。
-
-```c++
-#pragma once
-#include "DoublyNode.h"
-
-template <class Type>
-class TreeSet
-{
-    private:
-        // head of the Tree-set, size MEMBER VARIABLES
-        DoublyNode<Type>* root{ nullptr };
-        unsigned int length{ 0 };
-
-        DoublyNode<Type>* insertRecursively(DoublyNode<Type> *newNode, DoublyNode<Type> *node);
-        void printRecursively(DoublyNode<Type> *node);
-        // get height of a given node
-        int depthRecursively(const DoublyNode<Type> *node);
-        // search a value in the tree
-        bool searchRecursively(DoublyNode<Type> *node, const Type &data);
-        // delete tree
-        void deleteTree(const DoublyNode<Type> *node);
-        // get balance for factor of node
-        int getBalance(const DoublyNode<Type> *subTree);
-        // AVL rotation
-        DoublyNode<Type>* rightRotate(DoublyNode<Type>* y);
-        DoublyNode<Type>* leftRotate(DoublyNode<Type>* x);
-
-    public:
-        TreeSet();
-        TreeSet(const Type &data);
-        TreeSet(DoublyNode<Type>* root);
-
-        void add(const Type data);
-        void add(DoublyNode<Type> *node);
-        void printSet();
-
-        bool isInSet(const Type& data);
-        void remove(const Type& data);
-        void clear();
-        bool isEmpty();
-        int size();
-        ~TreeSet();
-};
-```
+一个类就是一类相同对象的统称。
 
-在公共成员方法中我们能找到基本数据结构的方法来执行基本操作(insert, delete, search and clear)。私有成员方法是递归方法在树的内部执行。我们为什么需要递归？树就是一个递归的数据结构，这意味着树是由简单的同样的数据结构组成。
+> 什么是一个对象？
 
-第一个函数是插入。方法"void insert(const Type& data)"或"void insert(const DoublyNode<Type> &newNode)"将一个节点插入到树中是共有的，也就是说，这可以从类外面访问，参数可以是Type TreeSet<Type>的值或者已经创建好的节点。内部方法调用私有递归方法(insertRecursively)，这个方法迭代执行整个树结构通过比较data值和其他节点来移动节点直到BST属性分布(小的移到左边，大的移到右边)，直到碰到了叶子节点，然后新的节点添加到叶子节点的子节点。
+对象是对封装的数据元素进行操作的一系列功能的集合。
 
-<img src="./img/TreeSet_4.png" width="60%" >
+> 或者相反的，对象是运行在隐含数据元素上的一系列功能的集合。
 
-上面的图，插入40，必须横向比较其他节点的值：1)40比100小，移到左节点，2)40比20大，移到右节点，3)40比30大，30是叶子节点，移到右子节点。注意左边所有的值都小于100。
+你说的隐藏数据元素是什么意思？
 
-<img src="./img/TreeSet_5.png" width="60%" >
+> 对象的函数隐藏着一些数据元素；但是从对象外面不能直接显示或者访问到数据。
 
-```c++
-// insert data a new node
-template<class Type>
-void TreeSet<Type>::add(const Type data)
-{
-    this->add(new DoublyNode<Type>{ data });
-}
+那些数据不在对象内？
 
-// insert node
-template<class Type>
-void TreeSet<Type>::add(DoublyNode<Type> *newNode)
-{
-    // calling recursive method
-    this->root = insertRecursively(newNode, this->root);
-}
-```
+> 可能是；但是没有规则说必须是这样。从用户的角度来看，一个对象只不过是一系列功能的集合。这些功能运行的数据必须存在，但用户不知道这些数据的位置。
 
-这个过程递归节点，调用方法比较值。查找和插入最坏的时间复杂度就是O(h)其中h是二叉查找树的高度。
+好的，我现在懂了。
 
-<img src="./img/TreeSet_6.png" width="60%" >
+> 好的，什么是数据结构？
 
-```c++
-// inserting node
-template<class Type>
-DoublyNode<Type>* TreeSet<Type>::insertRecursively(DoublyNode<Type>* newNode, DoublyNode<Type>* node)
-{
-    // when node of the tree is node return new node
-    if (node == nullptr)
-    {
-        node = newNode;
-        this->length++;
-        return node;
-    }
-    else if (newNode->getData() < node->getData())
-    {
-        node->left = insertRecursively(newNode, node->left);
-    }
-    else if (newNode->getData() > node->getData())
-    {
-        node->right = insertRecursively(newNode, node->right);
-    }
-    // ...
-}
-```
+数据结构是一套具有凝聚力的数据元素。
 
-上面这个图我们可以找到递归方法来插入新的节点，基本情况是当当前节点指向NULL，新的节点可以增加，如果没有，就递归调用，使用比较当前节点和新节点的值来确定继续调用左子树还是右子树。
+> 或者，换种说法，数据结构是由隐含函数执行的一组数据元素的集合。
 
-二叉查找树的插入方法最坏的查询、插入和删除复杂度是O(n)，当BST非平衡退化成为类似链表的结构。
+好的好的，我懂了。数据结构上运行的函数并不是由数据结构指定的，而是数据结构的存在意味着一些函数必须存在。
 
-<img src="./img/TreeSet_7.png" width="60%" >
+> 对。那么现在你注意到那两个定义有什么区别？
 
-如上图所示，所有的二叉查找树都退化了因为这不是一个完全二叉树，所有的节点都只有一个孩子节点，为了证明这个，我们选择了上图中第一个，插入5，将会耗费O(h)，高度和节点数一样，意味着插入、删除和查找都是O(n)。
+某种程度来说它们有点相反。
 
-有BST最主要的原因是每种操作复杂度接近O(log n)，为了达到这种目标我们要定义和实现平衡二叉查找树。
+> 的确，它们之间有点互补。它们组装在一起就像手和手套一样。
 
-<img src="./img/TreeSet_8.png" width="60%" >
+- 对象使基于隐藏数据元素的一组函数的集合
+- 数据结构是由隐藏函数操作的一组数据元素
 
-平衡二叉查找树的不同之处在于左子树和右子树的高度相差不能大于1.就像我前面描述的，树是一个递归的数据结构平衡二叉查找树的概念适用于每个节点和子节点。平衡二叉查找树保持最小的高度和根节点到每个节点的步数小于log(n)。
+哇，所以对象不是数据结构。
 
-<img src="./img/TreeSet_9.png" width="60%" >
+> 正确。对象使数据结构的对立面。
 
-最后接近完成我们的数据结构Tree-Set(AVL)，我们需要平衡我们的树来实现AVL树的概念。
+因此一个DTO - Data Transfer Object - 不是一个对象？
 
-一个AVL(Adel'son-Vel'skii and E.M.Landis)树是简单的自平衡二叉树，它需要左子树高度和右子树高度相差不能大于1。
+> 正确。DTOS是数据结构。
 
-AVL树在插入和删除节点时提供了旋转。这里有两种旋转，左旋和右旋。左旋和右旋都执行递归，使得旋转的节点最终成为根节点。
+那么数据库中的表也不是对象？
 
-<img src="./img/TreeSet_10.png" width="60%" >
+> 正确。数据库包含数据结构，不是对象。
 
-在计算每个子树的高度和为了比较子树高度然后执行旋转是非常重要的，这个方法depthRecursively(const DoublyNode<Type>* node)递归的计算了给定的节点高度然后比较左边和右边子树，它的基本情况是当前节点时NULL，它返回0.
+但是等等。一个ORM - Object Relational Mapper - 映射数据库表到对象？
 
-<img src="./img/TreeSet_11.png" width="60%" >
+> 当然不是。数据库表和对象之间没有映射。数据库表示数据结构，不是对象。
 
-另外一个比较左边和右边子树高度的方法：depthRecursively(const DoublyNode<Type> *node)。这个比较方法返回不同的高度和它调用getBalance(const DoublyNode<Type> *node)。
+那ORM是做什么的？
 
-旋转操作改变很少的指针因此耗费固定时间，所以AVL插入保持平衡二叉树的复杂度O(log n)。
+> 它在数据结构之间转换数据。
 
-<img src="./img/TreeSet_12.png" width="60%" >
+所以他们没有用对象做任何事？
 
-在改变树的每个操作后确保BST实现了AVL概念，必须执行一些二次平衡。其中包含了四种不同的操作：Left-Left case, Left-Right case, Right-Right case和Right-Left case。
+> 什么都没有。不存在对象关系映射；因为数据库表和对象之间没有映射关系。
 
-<img src="./img/TreeSet_13.png" width="60%" >
+但是我以为ORM给我们创建了业务对象。
 
-第一种情况，树旋转到右边，在上面的例子中，节点50被分配为新的根节点，它的右指针现在成为100的左指针。
+> 不，ORM提取我们业务对象运行的数据。那些数据包含在ORM加载的数据结构中。
 
-<img src="./img/TreeSet_14.png" width="60%" >
+但业务对象不包含数据结构吗？
 
-第二种情况和第一种类似，树旋转到左边重新分配根节点移动指针。
+> 有可能是，也有可能不是。那不是ORM的业务范畴。
 
-<img src="./img/TreeSet_15.png" width="60%" >
+那看起来有二义性。
 
-第三种情况更复杂一点，但是我们仔细看下就发现，它仅仅是子树左旋，然后子树再右旋得到一个新的根。这个和最后一种情况类似。
+> 根本没有。这一区别有很大影响。
 
-<img src="./img/TreeSet_16.png" width="60%" >
+比如说？
 
-上面的几种情况实现起来如下：
+> 如数据库schema的设计比对业务对象的设计。业务对象定义了业务行为的结构，数据库schema定义了业务数据结构。这两个结构受到截然不同的制约。业务数据的结构不一定是业务行为的最佳选择。
 
-<img src="./img/TreeSet_17.png" width="60%" >
+额，听着有点混乱。
 
-下一个操作是查找，这个非常简单，TreeSet类定义了isInSet(const Type &data)调用私有方法searchRecursively(DoublyNode<Type> *node, const Type &data)，这个方法和插入类似但是返回了一个bool变量标识着是否找到。
+> 试着这样理解。数据库schema不止对一个应用进行调整；它必须服务于整个企业。所以它的结构就必须向很多不同的应用妥协。
 
-查找的基本原则是当前节点是NULL，返回false。如果值被找到，返回true然后被分配给其他调用。
+是的，我觉得是。
 
-<img src="./img/TreeSet_18.png" width="60%" >
+> 好的。现在考虑每个应用。每个应用程序的对象模型描述了这些应用程序的行为程序方式。每个应用程序将有不同的对象模型，以适应该应用程序的行为。
 
-注意如果你需要下载代码，所有的方法在不同的位置在TreeSet.cpp中。
+奥，我懂了。由于数据库schema是各种应用的妥协，这种schema将不符合任何特定应用的对象模型。
 
-<img src="./img/TreeSet_19.png" width="60%" >
+> 正确。对象和数据结构受到不同的约束。他们很少排好队。人们过去把这种称为对象/关系阻抗不匹配。
 
-[To download the file go to my Github](https://github.com/terselich/TreeSet)
+我听说过。但我认为阻抗不匹配是由ORM解决的。
+
+> 现在你却不同意见了。没有阻抗不匹配，因为对象和数据结构是互补的，不是同构的。
+
+说明什么呢？
+
+> 它们是对立的，不是相同的实体。
+
+对立的？
+
+> 是的，说起来很有意思。你看，对象和数据结构意味着完全相反的控制结构。
+
+等等，什么？
+
+> 考虑一组对象类它们都符合一个公共的接口。例如，imagine类代表二位图形，它们都有计算面积和周长的函数。
+
+为什么每个软件示例都喜欢用图形来举例？
+
+> 让我们考虑两个不同的类型：正方形和圆形。很显然这两个图形的面积和周长都用不同的数据结构操作。更显然的这些操作被称作动态的多态。
+
+等等，说慢点，是什么？
+
+> 它们有两个不同的面积计算函数，一个是正方形一个是圆形。当调用者调用一个特定的对象的area函数时，那个对象知道调用哪个函数。我们称为动态的多态性。
+
+是的。当然。对象知道方法的具体实现。当然。
+
+> 现在让我们把这些对象转换为数据结构。我们将使用可区分联合。
+
+可区分什么？
+
+> 可区分联合。就我们而言，仅仅是两个数据结构。一个是方形一个是圆形。圆形数据结构包含中心点，和一个半径。它也有一个类型代码来标识它是一个圆形。
+
+你意思像一个枚举？
+
+> 当然。正方形数据结构包含左上点，每个边的长度。它也有类型区分 - enum
+
+好的。两个包含类型的数据结构。
+
+> 对的。现在考虑一下area函数，它会有转换声明，不是吗？
+
+嗯，当然，两种不同的情况。一个是正方形一个是圆形。perimeter函数也需要类似的转换声明。
+
+> 又一次对了。现在考虑下这两种场景的结构。在对象场景中，area函数的两个实现互相独立，属于（在某种程度上的）类型。正方形的面积属于正方形，而圆形的面积属于圆形。
+
+好的，我知道你的意思了。在数据结构场景下两个area函数的实现是在一个函数中，它们不属于类型。
+
+> 它变得更好了。如果要将三角形加入到对象场景中，需要修改哪些代码？
+
+不用修改代码。只需要新建一个Triangle类。奥，我想实例的创建者必须改变。
+
+> 正确，所以当你增加一个新类型，很少的修改。假设你需要增加一个新函数 - center函数。
+
+好吧，那你必须把它增加到三种类型中，正方形，圆形和三角形。
+
+> 很好。所以增加新函数是困难的，你必须修改每个类。
+
+但是它们的数据类型是不同的。为了增加Triangle你需要改变每个函数，以便将三角增加到转换声明中。
+
+> 正确，增加一个新类型是困难的，你必须修改每个函数。
+
+但是当我增加center函数，什么都没有改变。
+
+> 是的，增加函数很容易。
+
+哇，正好相反。
+
+> 事实上是的。让我们回顾下：
+
+- 给一组类增加新函数是困难的，你必须改变每个类
+- 给一组数据结构增加新函数是容易的，你仅仅增加函数，别的不用改变
+- 给一组类增加新的类型是容易的，你仅仅增加新的类
+- 给一组数据结构增加新类型是困难的，你需要改变每个函数
+
+有趣的理论。我知道，如果你知道将在一系列类型中增加新的函数，你应该使用数据结构。但如果你将增加新的类型，你应该使用类。
+
+> 理解的不错。但是最后还有一个问题需要讨论。还有一种数据结构和类对立的方式，这与依赖有关。
+
+依赖？
+
+> 是的，代码直接依赖。
+
+好吧，我听着呢，区别是什么？
+
+> 考虑数据结构案例。每个函数都有转换声明，根据区分联合内部的类型代码选择合适的实现。
+
+好的，没错，那又是什么呢？
+
+> 考虑下调用area函数。调用者依赖area函数，area函数又依赖于每个实现。
+
+你说的依赖是什么？
+
+> 想象下area的每个实现。就会有circleArea，squareArea和triangleArea。
+
+好的，转换声明调用这些函数。
+
+> 想象下这些函数分布在不同的源文件中。
+
+那么有转换声明的这些源文件就需要导入，或使用，或包含那些源文件。
+
+> 正确，这就是代码依赖。一个源文件依赖另一个源文件。这种依赖的方向是什么？
+
+有转换声明的源文件依赖包含实现的。
+
+> 那area函数的调用者呢？
+
+area函数的调用者即依赖转换声明的源文件又依赖所有实现的。
+
+> 正确。所有源文件依赖指向调用方，从每个实现的调用者。所以如果你对其中一个实现做了改动...
+
+好的，我知道你要说什么了。任何一种实现的改变都会导致带有转换声明的源文件重新编译，这将导致所有调用转换声明的都需要重新编译。
+
+> 正确。至少对于依赖于源文件日期来确定哪些模块应该被编译的编程语言来说是如此。
+
+它们几乎都是动态类型，对吗？
+
+> 是的，某些是某些不是。
+
+这会导致很多重新编译。
+
+> 还有很多重新部署。
+
+但是在类中，这种情况正好相反。
+
+> 是的，因为调用area函数的依赖于接口，实现的函数也依赖于接口。
+
+我懂你意思了。Square类的源文件导入，或使用，或包含了Shape接口。
+
+> 正确。实现的源文件方向正好相反。它们从实现指向调用方。至少静态类型语言是这样。动态类型语言area函数的调用者什么也不依赖。这些联系是在运行时建立起来的。
+
+好的，所以如果你需要改变一个实现...
+
+> 仅仅修改的文件需要被重新编译。
+
+这是因为源文件中的依赖关系指向调用方。
+
+> 是的。我们称为依赖转换。
+
+好的，那我试着总结一下。类和数据结构有三种不同点：
+
+- 类使得函数可见同时保持数据隐藏。数据结构使得数据可见，同时保持函数隐藏。
+- 类可以很容易的增加类型但是增加函数就很困难。数据结构很容易的增加函数但是增加类型就很困难。
+- 数据结构使调用者面临重新编译和重新部署的风险。类隔离了调用者重新编译和重新部署。
+
+> 你已经掌握了。这是每个优秀的软件设计人员和架构师需要注意的。
