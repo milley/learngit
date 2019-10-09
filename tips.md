@@ -1,3 +1,4 @@
+```python
 import os
 
 if len(os.sys.argv) < 2:
@@ -17,3 +18,4 @@ if not dirExists:
     os.makedirs(artsPath + r"\tip")
     os.makedirs(artsPath + r"\share")
     print(artsPath + " 创建成功")
+```
