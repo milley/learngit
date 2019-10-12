@@ -48,8 +48,9 @@ for movie in collection.iter("movie"):
     print(movie.tag, ":", movie.get("title"))
 
 tree.write('movies-res-unordered.xml')
-
 ```
+
+```xml
 <collection shelf="New Arrivals">
 <movie title="Enemy Behind" name="Enemy Behind" type="1" Action="a">
    <type>War, Thriller</type>
@@ -83,5 +84,4 @@ tree.write('movies-res-unordered.xml')
    <description>Viewable boredom</description>
 </movie>
 </collection>
-```
 ```
