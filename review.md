@@ -1,214 +1,175 @@
-# 长密钥ID碰撞
+# 类型和测试
 
-[The Long Key ID Collider](http://nullprogram.com/blog/2019/07/22/)
+[Types and Tests](https://blog.cleancoder.com/uncle-bob/2019/06/08/TestsAndTypes.html)
 
-在过去几周里，我花了很多时间在OpenPGP秘钥上。这是由于打磨我的密码导出PGP秘钥生成工具导致的。我加深了解了它的内部实现，它让我探索了格式化的各个方面，尝试有趣的东西，然后评价各种各样的OpenPGP实现应答到怪异的输入中。
+Mark Seeman (@ploeh)和我在twitter有一个有趣的争论。它从我发的这个推特开始，后来持续成了一系列的推特时间线：
 
-为了一个特别酷的技巧，看一看这两个我昨天生成的私钥。这个是第一个：
+> 这里不能忽略。无论你使用的静态还是动态类型，你都应该通过执行测试来证明正确性。静态类型不能省略那些测试，因为它们都是基于习惯和经验的。Uncle Bob Martin (@unclebobmartin) June 4, 2019
 
-```linux
------BEGIN PGP PRIVATE KEY BLOCK-----
+和往常一样，在社交网络上，一些人发布粗鲁的、侮辱的评论。那些人根本不重要。Mark，在另一边，用尊敬、实质性的回复，接下来可以看到整线。它是这样开始的：
 
-xVgEXTU3gxYJKwYBBAHaRw8BAQdAjJgvdh3N2pegXPEuMe25nJ3gI7k8gEgQvCor
-AExppm4AAQC0TNsuIRHkxaGjLNN6hQowRMxLXAMrkZfMcp1DTG8GBg1TzQ9udWxs
-cHJvZ3JhbS5jb23CXgQTFggAEAUCXTU3gwkQmSpe7h0QSfoAAGq0APwOtCFVCxpv
-d/gzKUg0SkdygmriV1UmrQ+KYx9dhzC6xwEAqwDGsSgSbCqPdkwqi/tOn+MwZ5N9
-jYxy48PZGZ2V3ws=
-=bBGR
------END PGP PRIVATE KEY BLOCK-----
+> 我恭恭敬敬的不同意这个观点。一些类型系统允许null引用。在这些类型系统中，你必须编写测试才能证明正在验证的系统没有被null输入互相影响。
+>
+> 另一种类型系统(例如Haskell)不存在null。编写等价的测试会没有意义。--Mark Seemann (@ploeh) June 4, 2019
+
+接着一场火热的争论开始了。接下来的各种线索你将会看到集中的、有教育意义的辩论。然而，我只想聚焦在Mark的回复上。他在tweet上发了一篇2018年他写的[博客](https://blog.ploeh.dk/2018/07/09/typing-and-testing-problem-23/)。我鼓励你去读一下。你将会学习到一些静态类型、测试和Haskell。你还将会学习到如何使用过去发布的反驳意见来和其他人争论。;-)
+
+Mark在他的blog指出的问题是一个简单函数：rndselect(n,list)。它随机的从输入列表中选择n个元素返回一个列表。他使用Haskell来实现这个对策，使用类型，QuickCheck和事后测试。
+
+这激起了我的兴趣。不同的使用一个动态函数式编程语言例如Clojure，用严格的TDD规则，过程和结果是什么样子。
+
+让我们看一下。
+
+我们用一个退化的测试开始。如果输入列表是空我们返回一个空列表，或者请求的元素个数是0。
+
+```Clojure
+(deftest random-element-selection
+  (testing "degenerate case"
+   (is (= [] (random-elements 0 [])))
+   (is (= [] (random-elements 0 [1])))
+   (is (= [] (random-elements 1 [])))
+   ))
+
+(defn random-elements [n xs]
+  [])
 ```
 
-这是第二个：
+早期在Mark的博客他记录了[免费定律](https://ttic.uchicago.edu/~dreyer/course/papers/wadler.pdf)的推论，就是他不需要测试结果列表中的元素来自源列表中的元素。另一方面，由于我没有使用静态类型系统，如果我的测试部假设结果集中的元素来自源列表，那么我的测试就没意义了。
 
-```linux
------BEGIN PGP PRIVATE KEY BLOCK-----
+这是一个琐碎的情况。让我们从列表中取一个元素：
 
-xVgEXTU3gxYJKwYBBAHaRw8BAQdAzjSPKjpOuJoLP6G0z7pptx4sBNiqmgEI0xiH
-Z4Xb16kAAP0Qyon06UB2/gOeV/KjAjCi91MeoUd7lsA5yn82RR5bOxAkzQ9udWxs
-cHJvZ3JhbS5jb23CXgQTFggAEAUCXTU3gwkQmSpe7h0QSfoAAEv4AQDLRqx10v3M
-bwVnJ8BDASAOzrPw+Rz1tKbjG9r45iE7NQEAhm9QVtFd8SN337kIWcq8wXA6j1tY
-+UeEsjg+SHzkqA4=
-=QnLn
------END PGP PRIVATE KEY BLOCK-----
+```Clojure
+(testing "trivial cases"
+  (is (= [1] (random-elements 1 [1]))))
+
+(defn random-elements [n xs]
+  (if (or (< n 1) (empty? xs))
+    []
+    [(first xs)]))
 ```
 
-连接它们然后导入到GnuPG看一下。为了避免丢掉真实的秘钥环，尤其是私钥，使用--homedir选项来设置临时的密钥环。我将会在示例中使用这些选项。
+注意我在遵循逐步提升复杂度的规则。比起来担心整个程序的随机片段问题，我首先聚焦在测试描述外围的问题。
 
-```linux
-$ gpg --import < keys.asc
-gpg: key 992A5EEE1D1049FA: public key "nullprogram.com" imported
-gpg: key 992A5EEE1D1049FA: secret key imported
-gpg: key 992A5EEE1D1049FA: public key "nullprogram.com" imported
-gpg: key 992A5EEE1D1049FA: secret key imported
-gpg: Total number processed: 2
-gpg:               imported: 2
-gpg:       secret keys read: 2
-gpg:   secret keys imported: 2
+我们称作：“不要去找金子”。尽可能的原理算法核心，逐步的提升测试难度。首先处理退化的、琐碎的、好管理的任务。
+
+在那个指导下，下一个复杂点就是担心重复。所以我们可以测试下从单个元素列表中取更多的元素。
+
+```Clojure
+(testing "repetitive case"
+    (is (= [1 1] (random-elements 2 [1]))))
+	
+(defn generate-indices [n]
+  (repeat n 0))
+
+(defn random-elements [n xs]
+  (if (or (< n 1) (empty? xs))
+    []
+    (map #(nth xs %) (generate-indices n))))
 ```
 
-自从我做了这些，用户ID就是"nullprogram.com"，这些就是我的信用。"992A5EEE1D1049FA"就称作长键ID:一个64位的数值来代替键。它是全密钥ID的最低64位，160位SHA-1哈希。过去，所有人都使用短的密钥ID来标识密钥，这是密钥最低的32位。对于上面的秘钥来说，就是"1D1049FA"。然而，这被视作太短了，每个人都转向长的密钥ID，甚至整个160位的密钥ID。
+你们中的一部分人可能会觉得我比起自身会领先一些。我用nth调用代替用first调用来保持。如果没有测试，我为什么要修改它？
 
-密钥ID没有比密钥创建时间的SHA1哈希多处任何东西--无符号的32位unix时间戳--对于公钥是必须的。所以密钥和相关联的公钥都有同样的密钥ID。既然它们是一对密钥并且连在一起也是理所应当的。
+无奈！
 
-仔细看你就会发现两个键对都有相同的密钥ID。如果你还没有从这篇文章的标题猜出来，这里有两个不同的键却又相同的密钥ID。换一种说法，我创建了一个碰撞的密钥ID。自从有这么重要GnuPG的--list-keys命令打印了整个密钥ID：
+下一个要考虑的复杂事情就是那些索引。现在他们都是0。要确保除0之外其他的索引也能正常工作。测试这个强迫我需要mock函数来生成索引；这也会强迫我修改一点设计。所以我将会解散generate-indices函数然后从外部mock一个单独的索引。
 
-```linux
-$ gpg --list-keys
----------------------
-pub   ed25519 2019-07-22 [SCA]
-      A422F8B0E1BF89802521ECB2992A5EEE1D1049FA
-uid           [ unknown] nullprogram.com
+陌生的with-bindings调用临时的替换index函数的实现，以便每次都返回下表1。奇怪的^:dynamic属性是必须的，在Clojure中如果你想模拟(重新绑定)一个函数。
 
-pub   ed25519 2019-07-22 [SCA]
-      F43BC80C4FC2603904E7BE02992A5EEE1D1049FA
-uid           [ unknown] nullprogram.com
+```Clojure
+(testing "singular random case"
+  (with-bindings {#'index (fn [] 1)}
+    (is (= [2] (random-elements 1 [1 2])))))
+	
+(testing "repeated random case"
+    (with-bindings {#'index (fn [] 1)}
+      (is (= [2 2] (random-elements 2 [1 2])))))
+
+(defn ^:dynamic index []
+  0)
+
+(defn generate-indices [n]
+  (repeatedly n index))
+
+(defn random-elements [n xs]
+  (if (or (< n 1) (empty? xs))
+    []
+    (map #(nth xs %) (generate-indices n))))
 ```
 
-我仅仅把最低的64位作为目标，但是实际上偶然碰撞了最低68位。因此长密钥ID仍然不能足够信任的确定任何密钥。
+让我们检查rand-int已经被调用。这样做我们可以确保从[0 10 20 30]10个随机元素的和会大于0小于300。
 
-当然这不是新闻。我也不是第一个创建长密码冲突的人。在2013年，[David Leon Gil published a long key ID collision for two 4096-bit RSA public keys](https://mailarchive.ietf.org/arch/msg/openpgp/Al8DzxTH2KT7vtFAgZ1q17Nub_g)。然而，这只是我找到的另外一个例子。他没有包含私钥也没有详细描述他是如何做到的。我知道他生成的钥匙是可行的，而不仅仅是公钥部分的垃圾，因为它们都是自签约。
+```Clojure
+(testing "random selection"
+  (let [ns (random-elements 10 [0 10 20 30])
+        sum (reduce + ns)]
+    (is (< 0 sum 300))))
+	
+(defn ^:dynamic index [limit]
+  (rand-int limit))
 
-创建那些密钥是比起我期望的复杂的多，有一个老旧的、聪明的办法可以让它工作。在我为passphrase2pgp所做的工作的基础上，我创建了一个单独的工具，可以创建长的密钥ID并打印两个密钥对到标准输出。
+(defn generate-indices [n limit]
+  (repeatedly n (partial index limit)))
 
-- <https://github.com/skeeto/pgpcollider>
-
-示例：
-
-```linux
-$ go get -u github.com/skeeto/pgpcollider
-$ pgpcollider --verbose > keys.asc
+(defn random-elements [n xs]
+  (if (or (< n 1) (empty? xs))
+    []
+    (map #(nth xs %) (generate-indices n (count xs)))))
 ```
 
-这样运行会耗费一天时间。这个工具可以选择性的协调很多机器--见--server/-S和--client/-C选项--一起工作大大缩短总的时间。在单机上创建上面的密钥大概需要4个小时，在这个过程中大概产生10亿个密钥。如下面讨论的，我觉得很幸运的是只消耗了10亿毫秒。如果你修改程序进行简短的密钥ID碰撞，只需要几秒钟。
+这个测试失败的概率大概是百万分之一。如果我认为有必要的话，可以适当提高。如果我想消除这些可能性，我可以写一个间谍来确保随机函数被正确地调用。但是我不认为这些都值得。
 
-## 生日攻击
+到目前为止我在测试中只使用了整数。大部分的测试并不关心元素类型。所以为什么不更改这些特定的测试以确保正确处理许多不同的类型呢。
 
-一个特定的细节是这种技术并不针对任何特定的密钥ID。克隆其他人的长密钥ID依旧非常耗费精力。不，这是一个[生日攻击](https://en.wikipedia.org/wiki/Birthday_attack)。从一个2^64的空间找一个碰撞，平均我仅仅需要生成2^32的例子--那个空间的平方根。在普通台式计算机上完全可行。去碰撞长密钥ID，我仅仅需要生成大概40亿ID，并在那个设置上有效率的进行成员测试。
+```Clojure
+(testing "trivial cases"
+  (is (= [1] (random-elements 1 [1]))))
 
-那个最后一步说起来比做起来容易。自然地，看起来像这样(pseudo-code):
+(testing "repetitive case"
+  (is (= [:x :x] (random-elements 2 [:x]))))
 
-```go
-seen := map of long key IDs to keys
-loop forever {
-    key := generateKey()
-    longID := key.ID[12:20]
-    if longID in seen {
-        output seen[longID]
-        output key
-        break
-    } else {
-        seen[longID] = key
-    }
-}
+(testing "singular random case"
+  (with-bindings {#'index (fn [_] 1)}
+    (is (= ['b'] (random-elements 1 ['a' 'b'])))))
+
+(testing "repeated random case"
+  (with-bindings {#'index (fn [_] 1)}
+    (is (= ["two" "two"] (random-elements 2 ["one" "two"])))))
 ```
 
-考虑到map的大小。每一个长ID是8字节，我们期望存储2^32个。最少也需要32GB的存储才能放下所有的长ID。map本身还有一些开销。由于这些实际上是随机的查找，这一切都需要在内存中要不然其他查找方式将会非常缓慢和不切实际。
+通过那些，我想我们已经做了。
 
-并且我还没有计算密钥的数目。作为可取之处，它们都是Ed25519密钥，因此私钥和公钥都是32字节，如果我需要就应该创建自签名。(自身签名将会比加密键大很多)。那是大约256GB的存储空间，虽然这至少可以存放在硬盘上。然而，从map中取地址我将需要至少38位，在加一些更多的数据以防止溢出。再加8字节好了。
+在我的测试中有8个断言。然而，大部分的断言都是在TDD进程中被增加的。现在它们可以工作，有多少断言是真正需要的？可能仅仅是退化的情况和随机的最终测试。让我们调用那四个断言。处于文档目的我把所有的都留在这里，但是它们并不是绝对需要的。
 
-因此，至少是64GB内存加上256GB其他存储。没什么是理想的，我们需要更多的东西。这一切依然可行，但是需要昂贵的硬件资源。我们可以做的更好。
+无效参数怎么样？如果有人这样调用(random-elements -23 nil)又怎么样？我需要为它们写测试用例吗？
 
-## 种子选手中的密钥
+该函数已经通过返回一个空的列表来处理任何一个小于1的负数。这没有经过测试，但是代码很清晰。在nil的情况下，将抛出一个异常。这对我来说是可以的。这是一个动态语言。当你没有处理好类型时，会有异常。
 
-你能注意到的是，我们可以通过更聪明的生成密钥来舍弃256GB的存储。由于我们实际上不关心密钥的安全，我们可以从一个比密钥小的种子生成密钥。不要用8字节来引用存储中的密钥，只用这8字节来存储用于制作密钥的种子。
+这有危险吗？当然，只有当部分系统未经测试就完成编写。如果你从一个你编写过测试的模块来调用，使用与TDD规章一样有效的方法，你将不会传入nil或者负数，或者其他形式的无效参数。因此我不需要担心这些。就像你说的。
 
-```go
-counter := rand64()
-seen := map of long key IDs to 64-bit seeds
-loop forever {
-    seed := counter
-    counter++
-    key := generateKey(seed)
-    longID := key.ID[12:20]
-    if longID in seen {
-        output generateKey(seen[longID])
-        output key
-        break
-    } else {
-        seen[longID] = seed
-    }
-}
-```
+## 症结
 
-我正在增加一个计数器来生成种子，因为我不想经历生日悖论来应用于我的种子。每一个都必须唯一。我在伪随机数上使用了SplitMix64，所以一个简单的正常生成种子是不错的。
+这就是我和Mark争论的症结。我声称所需的测试数量只是描述系统的正确行为所需的测试。如果系统的每个元素的行为都是正确的，则系统的任何元素都不会将无效的元素传递给其他参数。无效的状态将无法表示。
 
-归根到底，这仍旧使用了过多的内存。如果我们能把map的内存从64GB降低到几MB上，这不是很疯狂吗？好吧，我们可以！
+当然没有一套测试可以证明系统是正确的。Dijkstra说最好是：“测试显示存在，而不是没有bug”。不过，我们至少要尝试下。因此，我们通过一系列全面的测试来阐述实际正确性。
 
-## 彩虹表(Rainbow tables)
+我断言，无论系统是静态语言还是动态语言编写的，都需要一组测试来表明实际正确。
 
-数十年来，解密高手面临一个相同的问题。它们想预先计算数十亿流行密码的hash，以便他们在日后能有效的逆转这些密码。然而，存储所有这些hash会非常的昂贵也没有必要，甚至不可行。
+Mark断言，当你使用动态语言你需要更多的测试，因为静态类型检查使得无效状态无法呈现，因此仔细考虑后剔除它们。如果你有一个不能是nil的类型那么你就不需要编写测试来检查nil。
 
-所以他们不会。他们用彩虹表来代替。密码hash链成一起放到一个hash链，密码hash会导致新的密码，以此类推。因此仅仅存储每个链的开始和结束。
+我的回答是，即使使用动态类型语言，我也不需要编写没有的测试，因为我知道永远不会通过。如果我知道那些状态永远无法表达，那我就不需要状态无法表达。
 
-从彩虹表中查找一个hash，从目标hash开始运行hash链算法，为每一个hash，检查是否能匹配链条的末尾。如果是这样，重新计算那个链然后注意在目标散列值之前的步骤。这就是密码。
+## 无论如何...
 
-例如，猜想密码"foo"的hash是9bfe98eb，我们有一个精简函数可以将hash映射到某个密码。在这种情况下，它将9bfe98eb映射到"bar"。一个琐碎的精简函数可能只是一个索引到一个密码列表。一个hash链从"foo"开始可能像这样：
+回到随机元素：
 
-```linux
-foo -> 9bfe98eb -> bar -> 27af0841 -> baz -> d9d4bbcb
-```
+如果你比较我和Mark写的两个函数(如果你懂得Haskell，我不懂)我想你将会看到两个实现非常相似。然而，我们采用的测试策略完全不同。
 
-实际上链会更长。另一个以"apple"开始的就像这样：
+我写的测试表明我几乎关心函数的期望行为。测试使用TDD格式一次完成一小步，使得向前一直发展。
 
-```linux
-apple -> 7bbc06bc -> candle -> 82a46a63 -> dog -> 98c85d0a
-```
+但是Mark，更关心的是如何使用泛型类型来表达正确的因素。他绝大多数思维过程被正确代表性问题的类型结构给消耗了。然后他基于属性的QuickCheck样式测试和事后测试来验证正确行为。
 
-我们仅仅保存了元祖(foo, d9d4bbcb)和(apple, 98c85d0a)到我们的数据库中。如果这个链有一百万hash的长度，我们仍然只存储那两个元祖。那简直是1:1000000的压缩比例。
+哪个更好？
 
-随后我们将面对反转hash27af0841，这个没有直接列在数据库中。因此我从这个hash开始跑整个链，直到到达最大长度(密码不存在)，或者我们识别出一个hash。
+> 巴里克·奥巴马说过：“回答那个具体问题要在我的付费级别上”
 
-```linux
-27af0841 -> baz -> d9d4bbcb
-```
-
-hash值d9d4bbcb就是列出的"foo"的hash链。所以我重新生成hash链来发现"bar"通向27af0841。密码破解了！
-
-## 彩虹表碰撞机
-
-我的碰撞及工作非常相似。一个hash链就像这样：由一个64位的种子开始，生成一个密钥，得到长密钥ID，使用长密钥ID作为下一个密钥的种子。
-
-<img src="./img/collider-chain-1.png" width="100%" >
-
-这里有很大的不同。在彩虹表中的目的是通过看链中的前一步来反向运行哈希函数。对于碰撞机，我想知道哈希链是否有冲突。只要每个链条从唯一的种子开始，就意味着我们找到了两个不同的种子，它们的长密钥ID是一样的。
-
-或者，可能是两个不同的种子导致了相同的密钥，这不会有用，但那只是规避而已。
-
-一个简单而有效的方法来检查两个链条是否包含相同的序列，就是按这个序列在同一个位置停止它们。它们没有在一些固定的步骤运行哈希链，而是在到达一个区别点时停止。在我的冲突中，一个区别点是长密钥ID以至少N个0比特结尾，N决定平均链长。我选择了17位。
-
-```go
-func computeChain(seed) {
-    loop forever {
-        key := generateKey(seed)
-        longID := key.ID[12:20]
-        if distinguished(longID) {
-            return longID
-        }
-        seed = longID
-    }
-}
-```
-
-如果两个不同的哈希链在同一个区别点结束，它们肯定会在中间某个地方发生碰撞。
-
-<img src="./img/collider-chain-1.png" width="100%" >
-
-判断两个链哪里碰撞，重新生成每个链然后查找共有的首个长密钥ID。前面的步骤就是碰撞键。
-
-```go
-counter := rand64()
-seen := map of long key IDs to 64-bit seeds
-loop forever {
-    seed := counter
-    counter++
-    longID := computeChain(seed)
-    if longID in seen {
-        output findCollision(seed, seen[longID])
-        break
-    } else {
-        seen[longID] = seed
-    }
-}
-```
-
-哈希链计算的并行性令人尴尬，因此可以利用CPU的各个核心。通过这些类彩虹表，我的工具可以在几MB内存上生成和解密。额外的计算成本是生成更多链所需的时间，但不是必须的。
+我们中哪些人的测试结果较少？在这两种情况下，我认为四个基本断言是合适的。然而，作为过程的一部分，我谢了8个断言，Mark写了两个基于属性的QuickCheck测试，以及三个时候回归测试。这是否等于5 vs 8？或者，这些QuickCheck测试是否更多？我不知道，你来决定吧。
