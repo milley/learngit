@@ -1,175 +1,173 @@
-# 类型和测试
+# 艰难的理解Java中泛型转换
 
-[Types and Tests](https://blog.cleancoder.com/uncle-bob/2019/06/08/TestsAndTypes.html)
+[Understand Casting Generics in Java by Eating Broken Glass](https://link.medium.com/jPg9SPTtZ0)
 
-Mark Seeman (@ploeh)和我在twitter有一个有趣的争论。它从我发的这个推特开始，后来持续成了一系列的推特时间线：
+<img src="./img/generics-1.png" width="100%" >
 
-> 这里不能忽略。无论你使用的静态还是动态类型，你都应该通过执行测试来证明正确性。静态类型不能省略那些测试，因为它们都是基于习惯和经验的。Uncle Bob Martin (@unclebobmartin) June 4, 2019
+Java中的类型转换看起来直截了当：一个Dog是Animal的一种类型，因此当你需要一个Animal时，你可以将Dog向上转换成Animal。此外，如果你有一个Animal实际上你知道它是一个Dog，你可以将Animal向下转换成Dog。
 
-和往常一样，在社交网络上，一些人发布粗鲁的、侮辱的评论。那些人根本不重要。Mark，在另一边，用尊敬、实质性的回复，接下来可以看到整线。它是这样开始的：
-
-> 我恭恭敬敬的不同意这个观点。一些类型系统允许null引用。在这些类型系统中，你必须编写测试才能证明正在验证的系统没有被null输入互相影响。
->
-> 另一种类型系统(例如Haskell)不存在null。编写等价的测试会没有意义。--Mark Seemann (@ploeh) June 4, 2019
-
-接着一场火热的争论开始了。接下来的各种线索你将会看到集中的、有教育意义的辩论。然而，我只想聚焦在Mark的回复上。他在tweet上发了一篇2018年他写的[博客](https://blog.ploeh.dk/2018/07/09/typing-and-testing-problem-23/)。我鼓励你去读一下。你将会学习到一些静态类型、测试和Haskell。你还将会学习到如何使用过去发布的反驳意见来和其他人争论。;-)
-
-Mark在他的blog指出的问题是一个简单函数：rndselect(n,list)。它随机的从输入列表中选择n个元素返回一个列表。他使用Haskell来实现这个对策，使用类型，QuickCheck和事后测试。
-
-这激起了我的兴趣。不同的使用一个动态函数式编程语言例如Clojure，用严格的TDD规则，过程和结果是什么样子。
-
-让我们看一下。
-
-我们用一个退化的测试开始。如果输入列表是空我们返回一个空列表，或者请求的元素个数是0。
-
-```Clojure
-(deftest random-element-selection
-  (testing "degenerate case"
-   (is (= [] (random-elements 0 [])))
-   (is (= [] (random-elements 0 [1])))
-   (is (= [] (random-elements 1 [])))
-   ))
-
-(defn random-elements [n xs]
-  [])
+```java
+interface Trainer<T> {
+    void train(T pupil);
+    T getPupil();
+}
 ```
 
-早期在Mark的博客他记录了[免费定律](https://ttic.uchicago.edu/~dreyer/course/papers/wadler.pdf)的推论，就是他不需要测试结果列表中的元素来自源列表中的元素。另一方面，由于我没有使用静态类型系统，如果我的测试部假设结果集中的元素来自源列表，那么我的测试就没意义了。
+当你使用泛型事情就会变得更复杂。如果你有一个Trainer<Dog>，你可以用Trainer<Animal>来替换它吗？如果替换成Trainer<Schnauser>呢？
 
-这是一个琐碎的情况。让我们从列表中取一个元素：
+在这篇文章，我将开发一个简单直接的比喻来帮助你理解Java中的泛型转换，和如何解决一些公共转换(除了认识到公共转换不能工作)。
 
-```Clojure
-(testing "trivial cases"
-  (is (= [1] (random-elements 1 [1]))))
+## 比喻
 
-(defn random-elements [n xs]
-  (if (or (< n 1) (empty? xs))
-    []
-    [(first xs)]))
+最上面的图片解释了我的比喻。简单来说，你可以供应任何你想要的东西给一个黑洞，但是你不能把碎玻璃喂给人。
+
+那个比喻可以用下面的代码明确下，将在下面解释。
+
+```java
+public void feedStuffToOtherStuff(
+    Consumer<Food> human,
+    Consumer<Matter> blackhole,
+    Supplier<Food> pantry,
+    Supplier<Matter> boxOfBrokenGlass
+) {
+    feed(human, pantry);    // OK
+    feed(blackhole, boxOfBrokenGlass);  // OK
+    feed(blackhole, (Supplier<Matter>)pantry);  // Should be OK, but Java doesn't know that
+    feed(human, boxOfBrokenGlass);  // HFS No! That's not ok!(and Java agrees)
+}
 ```
 
-注意我在遵循逐步提升复杂度的规则。比起来担心整个程序的随机片段问题，我首先聚焦在测试描述外围的问题。
+让我们看一看比喻中浮现的东西：
 
-我们称作：“不要去找金子”。尽可能的原理算法核心，逐步的提升测试难度。首先处理退化的、琐碎的、好管理的任务。
+1. 一个人消费了食物
+2. 一个食品柜是食物的供应方
+3. 食物是一种物质
+4. 黑洞是物质的消费者
+5. 一盒破碎的玻璃也是物质的供应方
 
-在那个指导下，下一个复杂点就是担心重复。所以我们可以测试下从单个元素列表中取更多的元素。
+因此我们有两个供应者和两个消费者。上面的片段试着从每个类型的供应者供给给消费者。让我们分解下：
 
-```Clojure
-(testing "repetitive case"
-    (is (= [1 1] (random-elements 2 [1]))))
-	
-(defn generate-indices [n]
-  (repeat n 0))
+1. 食品柜中的东西供应给人。没问题，人消费食物，食品柜供给食物
+2. 一盒碎玻璃供应给黑洞，没问题，黑洞可以消费任何物质，玻璃也是物质的一种
+3. 食品柜供应给黑洞。这看起来对着：食品柜中有食物，食物是物质的一种，黑洞可以消费它。但是Java将会抱怨这个；在完成这篇文章之前我会理解为什么
+4. 将碎玻璃供应给人。这就是比喻展示最直接的部分：很显然这不可能，幸亏Java也不允许。我们将会理解为什么不。
 
-(defn random-elements [n xs]
-  (if (or (< n 1) (empty? xs))
-    []
-    (map #(nth xs %) (generate-indices n))))
+## 不兼容类型错误
+
+让我们再仔细的看下case3：尝试将食品柜的东西供应给黑洞。
+
+我们定义的黑洞是一个物质的消费者，我们的食品柜是食物的供应者。因为食物也是物质，每一片食物都是从食品柜取出来，事实上，也是一片物质，所以食品柜既是食物的供应者也是物质的供应者。
+
+但是Java不能那么理解。当你试着使用Supplier<Food>代替Supplier<Matter>，你将会从编译器得到一个类型不兼容的错误。
+
+这同样也发生(幸好)在case4：试着将碎玻璃供应给人。人是食物的消费者，尽快食物是物质的一种类型，也不是说人可以消费任何物质。因此，你不能使用Consume<Food>来代替Consume<Matter>。
+
+## 挖掘
+
+名字"supplier"和"consumer"不是附带的：它们代表两种不同的利用泛型的方式。看一下它们的接口：
+
+```java
+interface Consume<T> {
+    void consume(T input);
+}
+
+interface Supplier<T> {
+    G get();
+}
 ```
 
-你们中的一部分人可能会觉得我比起自身会领先一些。我用nth调用代替用first调用来保持。如果没有测试，我为什么要修改它？
+两个接口都是用一个类型参数，但是它们使用是有区别的：Consumer有一个带参数的方法；Supplier的方法没有带任何参数。
 
-无奈！
+就拿Consumer来说，它可以接收任何类型为T的参数，包含任何子类型是T：黑洞可以消费任何物质，包括食物和坏的玻璃。
 
-下一个要考虑的复杂事情就是那些索引。现在他们都是0。要确保除0之外其他的索引也能正常工作。测试这个强迫我需要mock函数来生成索引；这也会强迫我修改一点设计。所以我将会解散generate-indices函数然后从外部mock一个单独的索引。
-
-陌生的with-bindings调用临时的替换index函数的实现，以便每次都返回下表1。奇怪的^:dynamic属性是必须的，在Clojure中如果你想模拟(重新绑定)一个函数。
-
-```Clojure
-(testing "singular random case"
-  (with-bindings {#'index (fn [] 1)}
-    (is (= [2] (random-elements 1 [1 2])))))
-	
-(testing "repeated random case"
-    (with-bindings {#'index (fn [] 1)}
-      (is (= [2 2] (random-elements 2 [1 2])))))
-
-(defn ^:dynamic index []
-  0)
-
-(defn generate-indices [n]
-  (repeatedly n index))
-
-(defn random-elements [n xs]
-  (if (or (< n 1) (empty? xs))
-    []
-    (map #(nth xs %) (generate-indices n))))
+```java
+Food food;
+Matter brokenGlass;
+blackhole.consume(food);    // OK
+blackhole.consume(brokenGlass); // OK
 ```
 
-让我们检查rand-int已经被调用。这样做我们可以确保从[0 10 20 30]10个随机元素的和会大于0小于300。
+供应者的情况就完全不同了。Supplier的接口描述了get方法返回一个T类型的值：这可以是一个类型是T类的实例，或者任何为T的子类型。因此，大多数指定为T的类型的可以做(在编译的时候)。换句话说，Supplier<Parent>不是Supplier<Child>的子类。
 
-```Clojure
-(testing "random selection"
-  (let [ns (random-elements 10 [0 10 20 30])
-        sum (reduce + ns)]
-    (is (< 0 sum 300))))
-	
-(defn ^:dynamic index [limit]
-  (rand-int limit))
+```java
+// Supplier<Matter> gives us Matter
+Matter brokenGlass = boxOfBrokenGlass.get();
 
-(defn generate-indices [n limit]
-  (repeatedly n (partial index limit)))
-
-(defn random-elements [n xs]
-  (if (or (< n 1) (empty? xs))
-    []
-    (map #(nth xs %) (generate-indices n (count xs)))))
+// Nope! We can't assume that the Matter returned is actually Food.
+Food edibleGlass = boxOfBrokenGlass.get();
 ```
 
-这个测试失败的概率大概是百万分之一。如果我认为有必要的话，可以适当提高。如果我想消除这些可能性，我可以写一个间谍来确保随机函数被正确地调用。但是我不认为这些都值得。
+上面的例子向下转换了类型参数，从T转到T的子类(例如从Parent转到Child)。相反的当你向上转换参数类型，从T转换到T的超类：食物供应者可以，假设的，当成是物质的供应者，但是一个食物消费者不能当成任何物质的消费者。因此，一个Consumer<Parent>不是Consumer<Child>的子类型。
 
-到目前为止我在测试中只使用了整数。大部分的测试并不关心元素类型。所以为什么不更改这些特定的测试以确保正确处理许多不同的类型呢。
+一般情况下，一个泛型类型即可以是供应者也可以是消费者，意味着我们获取的通过类型转换(向上或向下)获取的类型不能既是子类又是超类：它们是无关类型不能被转换，这也是为什么Java编译器给出你“不合法类型”的错误。
 
-```Clojure
-(testing "trivial cases"
-  (is (= [1] (random-elements 1 [1]))))
+## 通过委托来转换接口
 
-(testing "repetitive case"
-  (is (= [:x :x] (random-elements 2 [:x]))))
+所以Java编译器不允许我们跨类型转换时因为没有通用的方式做这个事情。但是在泛型值消费或者只供应的情况下，有可能实现接口生成一个新的对象。
 
-(testing "singular random case"
-  (with-bindings {#'index (fn [_] 1)}
-    (is (= ['b'] (random-elements 1 ['a' 'b'])))))
+例如，我们知道消费者的类型T可以消费任何T的子类型。去生成我们的“转换对象”，我创建了接口的实例委托给原型，就像这样：
 
-(testing "repeated random case"
-  (with-bindings {#'index (fn [_] 1)}
-    (is (= ["two" "two"] (random-elements 2 ["one" "two"])))))
+```java
+class CaseConsumer<P, C extends P> implements Consumer<C> {
+    private final Consumer<P> from;
+
+    CastConsumer(Consumer<P> from) {
+        this.from = from;
+    }
+
+    @Override
+    public void comsume(C input) {
+        from.consume(input);
+    }
+}
 ```
 
-通过那些，我想我们已经做了。
+供应者也是以这种方式工作，把子类型规则(C)和超类型(P)对调下：
 
-在我的测试中有8个断言。然而，大部分的断言都是在TDD进程中被增加的。现在它们可以工作，有多少断言是真正需要的？可能仅仅是退化的情况和随机的最终测试。让我们调用那四个断言。处于文档目的我把所有的都留在这里，但是它们并不是绝对需要的。
+```java
+class CastSupplier<C extends P, P> implements Supplier<P> {
+    private final Supplier<C> from;
 
-无效参数怎么样？如果有人这样调用(random-elements -23 nil)又怎么样？我需要为它们写测试用例吗？
+    CastSupplier(Supplier<C> from) {
+        this.from = from;
+    }
 
-该函数已经通过返回一个空的列表来处理任何一个小于1的负数。这没有经过测试，但是代码很清晰。在nil的情况下，将抛出一个异常。这对我来说是可以的。这是一个动态语言。当你没有处理好类型时，会有异常。
+    @Override
+    public P get() {
+        return from.get();
+    }
+}
+```
 
-这有危险吗？当然，只有当部分系统未经测试就完成编写。如果你从一个你编写过测试的模块来调用，使用与TDD规章一样有效的方法，你将不会传入nil或者负数，或者其他形式的无效参数。因此我不需要担心这些。就像你说的。
+上面的例子阐述了我们的目的；接口可以被实现成匿名类，单一方法接口也可以用lambda来实现：
 
-## 症结
+```java
+static <P, C extends P> Consumer<C> cast (Consumer<P> from) {
+    return from::consume;
+}
 
-这就是我和Mark争论的症结。我声称所需的测试数量只是描述系统的正确行为所需的测试。如果系统的每个元素的行为都是正确的，则系统的任何元素都不会将无效的元素传递给其他参数。无效的状态将无法表示。
+static <p, C extends P> Supplier<P> cast (Supplier<C> from) {
+    return from::get;
+}
+```
 
-当然没有一套测试可以证明系统是正确的。Dijkstra说最好是：“测试显示存在，而不是没有bug”。不过，我们至少要尝试下。因此，我们通过一系列全面的测试来阐述实际正确性。
+如果你依旧觉得模糊，关于为什么Java编译器不能支持参数类型自动转换，试着实现这个Trainer接口的类型就像这样：
 
-我断言，无论系统是静态语言还是动态语言编写的，都需要一组测试来表明实际正确。
+```java
+interface Trainer<T> {
+    void train(T pipil);
+    T getPupil();
 
-Mark断言，当你使用动态语言你需要更多的测试，因为静态类型检查使得无效状态无法呈现，因此仔细考虑后剔除它们。如果你有一个不能是nil的类型那么你就不需要编写测试来检查nil。
+    static <P, C extends P> Trainer<P> castUp(Trainer<C> from) {
+        // ???
+    }
 
-我的回答是，即使使用动态类型语言，我也不需要编写没有的测试，因为我知道永远不会通过。如果我知道那些状态永远无法表达，那我就不需要状态无法表达。
+    static <C extends P, P> Trainer<C> castDown(Trainer<P> from) {
+        // ???
+    }
+}
+```
 
-## 无论如何...
+## 结论
 
-回到随机元素：
-
-如果你比较我和Mark写的两个函数(如果你懂得Haskell，我不懂)我想你将会看到两个实现非常相似。然而，我们采用的测试策略完全不同。
-
-我写的测试表明我几乎关心函数的期望行为。测试使用TDD格式一次完成一小步，使得向前一直发展。
-
-但是Mark，更关心的是如何使用泛型类型来表达正确的因素。他绝大多数思维过程被正确代表性问题的类型结构给消耗了。然后他基于属性的QuickCheck样式测试和事后测试来验证正确行为。
-
-哪个更好？
-
-> 巴里克·奥巴马说过：“回答那个具体问题要在我的付费级别上”
-
-我们中哪些人的测试结果较少？在这两种情况下，我认为四个基本断言是合适的。然而，作为过程的一部分，我谢了8个断言，Mark写了两个基于属性的QuickCheck测试，以及三个时候回归测试。这是否等于5 vs 8？或者，这些QuickCheck测试是否更多？我不知道，你来决定吧。
+Java编译器不允许通过参数类型转换泛型类型是因为目标类型，一般来说既不是子类也不是超类。也就是说，你可以通过创建一个新的对象来委托原型：对于消费类型参数，你可以使用这个技术来创建一个消费者子类；对于供应者，你可以创建一个供应者子类。一个物质消费者也可以消费食物；一个食物供应者必须是物质供应者。:w
