@@ -1,4 +1,4 @@
-# 艰难的理解Java中泛型转换
+# 通过吃破碎玻璃来理解Java中泛型转换
 
 [Understand Casting Generics in Java by Eating Broken Glass](https://link.medium.com/jPg9SPTtZ0)
 
