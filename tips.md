@@ -1,20 +1,4 @@
-# ES5中的严格模式
+# golang中的type
 
-strict mode将之前接受的错误转换成运行时错误。JavaScript设计当初就是为了让新手能够更容易的使用，有的时候它给出的操作应该是错误而非错误语义。有的时候这可以更直接的解决问题，但是有的时候会使问题更严重。strict mode就是专门针对这类过失看成是错误所以可以立即修复。
+- https://www.jianshu.com/p/cb5e401819dc
 
-在ES5中在javascript首行增加：
-
-```javascript
-'use strict';
-```
-
-表明下面的代码使用的是严格模式。它可以使代码的定义、使用更规范，避免一些诡异的运行行为。
-
-例如：
-
-```javascript
-const fot = Object.freeze({});
-// 常规模式时，下面一行不起作用；
-// 严格模式时，该行会报错
-fot.prop = 123;
-```
