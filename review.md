@@ -1,225 +1,219 @@
-# 如何创建一个基于CMake的项目
+# Java8并发操作可没有它看起来那么简单
 
-[How to Build a CMake-Based Project](https://preshing.com/20170511/how-to-build-a-cmake-based-project/)
+[Java 8 Parallel Operations Are Not As Simple As They Seem](https://www.bruceeckel.com/2016/04/27/java-8-parallel-operations-are-not-as-simple-as-they-seem/)
 
-CMake是一个可以帮助你在任何你想要的平台编译C/C++程序的万能的工具。它被很多非常有名的开源项目使用，比如 LLVM, Qt, KDE 和Blender。
+在探索流和并发流的不确定性，让我们看一个看起来很简单的问题：对一个自增序列的求和。事实证明有很多方法可以做到这一点，我也将冒着时间风险来比较它们--尽量小心谨慎，但我承认当执行时序代码很容易陷入基本的陷阱之内。结果会有一些瑕疵(比如没有预热JVM)，尽管如此它也提供了一些有用的指示。
 
-所有的基于CMake的项目都有一个名叫CMakeLists.txt的脚本，这个标识作为配置和创建这些项目的指南。本文不会给你教如何写CMake脚本，依我看来那是首要任务。
+我将以timeTest()方法开始计时，它获取一个LongSupplier，测量getAsLong()调用的时长，使用checkValue来比较结果并显示结果。它还将结果分配给volatile值，以防被Java引诱到优化了计算。
 
-我准备了一个使用SDL2和OpenGL用来渲染3D logo的项目[CMake-based project](https://github.com/preshing/CMakeDemo)以供参考。
+注意在任何时候，都尽可能严格使用long类型。在最重要的地方缺少long之前我花费了一些时间来找出溢出。
 
-这里列出的信息适用于任何基于CMake的项目，可以随意跳过任何章节。但是，我建议先了解下前两个章节。
+所有关于时间和内存的数字和讨论都涉及我的机器。你的经历可能和我的有所区别。
 
-- The Source and Binary Folders
-- The Configure and Generate Steps
-- Running CMake from the Command Line
-- Running cmake-gui
-- Running ccmake
-- Building with Unix Makefiles
-- Building with Visual Studio
-- Building with Xcode
-- Building with Qt Creator
-- Other CMake Features
+```java
+// Summing.java
+import java.util.stream.*;
+import java.util.function.*;
 
-如果你从来没使用过CMake，[这里](https://cmake.org/download/)可以找到安装包相关内容。在类Unix系统，包括Linux，通常可以使用包管理器安装。你可以使用MacPorts, Homebrew, Cygwin 或者 MSYS2来安装。
-
-<img src="./img/cmake_1.png" width="60" >
-
-## 源程序和二进制文件夹
-
-CMake生成构建管道。构建管道可以是Visual Studio的.sln文件，Xcode的.xcodeproj文件或者Unix类型的Makefile。它也能生成其他类型。
-
-生成一个构建管道，CMake需要知道源文件和二进制文件夹。源文件夹包含一个CMakeList.txt。二进制文件夹会生成构建管道。你可以在任何你想要的地方创建二进制文件夹。一般会在每个子目录下创建CMakeList.txt。
-
-<img src="./img/cmake_2.png" width="60" >
-
-保持二进制文件夹和源文件夹分开，你可以在任何时候通过clean命令清除二进制文件夹。你甚至可以创建不同的二进制文件夹，按不同的构建系统或者配置选项排列在一起。
-
-catch是一个非常重要的概念。在二进制文件夹中有叫CMakeCache.txt的文本文件。这就是cache变量存储的地方。缓存变量包含了用户配置的选项就像[CMakeDemo](https://github.com/preshing/CMakeDemo)的DEMO_ENABLE_MULTISAMPLE选项，和加速CMake运行速度的预编译信息。
-
-这意味着你不用把生成的构建管道提交到版本控制系统，通常包含的路径都是绝对路径。每次重新运行CMake克隆项目到新的文件夹。我通常在我的.gitignore文件增加一个规则*build*/。
-
-## 配置和生成步骤
-
-就像下面你看到的一样，将会有好多种方法运行CMake。不管如何运行，需要执行两个步骤：配置和生成。
-
-<img src="./img/cmake_3.png" width="60" >
-
-CMakeLists.txt脚本将在配置阶段执行。这个脚本负责定义目标。每个目标代表了可执行文件，库，或者其他构件管道的输出。
-
-如果配置步骤成功--意味着CMakeList.txt完成没有任何错误--CMake将使用脚本定义的目标生成了构件管道。构件管道的类型依赖于使用的生成类型，将在下面章节解释。
-
-在配置步骤还会发生额外的事情，依赖于CMakeLists.txt的内容。例如在我们的示例[CMakeDemo](https://github.com/preshing/CMakeDemo)中，配置就分为两步：
-
-- 查找SDL2和OpenGL的头文件和库文件
-- 在二进制文件夹中生成头文件demo-config.h，这将在C++代码中被包含
-
-<img src="./img/cmake_4.png" width="60" >
-
-在更复杂的项目中，配置步骤还会测试系统函数(例如传统Unix的configure脚本)，或者定义特殊的"install"目标(帮助创建可分配的包)。如果你在同一个二进制文件夹重新运行CMake，在子目录运行期间很多慢的步骤就会跳过，感谢缓存。
-
-## 从命令行运行CMake
-
-在运行CMake之前，确保你的项目和平台有必须的依赖项。[CMakeDemo](https://github.com/preshing/CMakeDemo)在Windows上你可以运行setup-win32.py。其他平台可以参考[Readme](https://github.com/preshing/CMakeDemo/blob/master/README.md)。
-
-你总是想要告诉CMake使用哪个生成器。运行cmake --help列出了可用的生成器。
-
-<img src="./img/cmake_5.png" width="60" >
-
-创建二进制文件夹，cd到那个文件夹，然后运行cmake，在命令行指定源文件夹。使用-G指定想要的生成器。如果你忽略了-G选项，cmake将会给你选择一个(如果你不想要这次的选择，你也可以删除二进制文件夹然后再来一遍)。
-
-```bash
-mkdir build
-cd build
-cmake -G "Visual Studio 15 2017" ..
+public class Summing {
+  static volatile long x;
+  static void timeTest(String id, long checkValue,
+    LongSupplier operation) {
+    System.out.print(id + ": ");
+    long t = System.currentTimeMillis();
+    long result = operation.getAsLong();
+    long duration = System.currentTimeMillis() - t;
+    if(result == checkValue)
+      System.out.println(duration + "ms");
+    else
+      System.out.format("result: %d\ncheckValue: %d\n",
+        result, checkValue);
+    x = result; // Prevent optimization
+  }
+  public static int SZ = 100_000_000;
+  // This even works:
+  // public static int SZ = 1_000_000_000;
+  // Gauss's formula:
+  public static final long CHECK =
+    (long)SZ * ((long)SZ + 1)/2;
+  public static void main(String[] args) {
+    System.out.println(CHECK);
+    timeTest("Sum Stream", CHECK, () ->
+      LongStream.rangeClosed(0, SZ).sum());
+    timeTest("Sum Stream Parallel", CHECK, () ->
+      LongStream.rangeClosed(0, SZ).parallel().sum());
+    timeTest("Sum Iterated", CHECK, () ->
+      LongStream.iterate(0, i -> i + 1)
+        .limit(SZ+1).sum());
+    // Takes longer, runs out of memory above 1_000_000:
+    // timeTest("Sum Iterated Parallel", CHECK, () ->
+    //   LongStream.iterate(0, i -> i + 1)
+    //     .parallel()
+    //     .limit(SZ+1).sum());
+  }
+}
+/* Output:
+5000000050000000
+Sum Stream: 625ms
+Sum Stream Parallel: 158ms
+Sum Iterated: 2521ms
+*/
 ```
 
-如果有项目指定的配置选项，你可以在命令行指定它们。例如CMakeDemo项目就有一个配置选项DEMO_ENABLE_MULTISAMPLE默认是0。你也可以通过-DDEMO_ENABLE_MULTISAMPLE=1选项来打开配置选项。修改DEMO_ENABLE_MULTISAMPLE的值将会更改demo-config.h的内容(在配置步骤由CMakeLists.txt生成的)。这个值也被存储在缓存中，因此随后运行也会持续。有的项目有不同的配置选项。
+CHECK的值使用卡尔·弗里德里希·高斯在1700年末创造的公式来进行计算，在小学的时候我们也已经学习过。
 
-```bash
-cmake -G "Visual Studio 15 2017" -DDEMO_ENABLE_MULTISAMPLE=1 ..
+第一个版本的main()使用简单的生成流的方法然后调用sum()来计算。我们看到使用流的福利就是虽然sz是一亿也没有溢出(我使用了一个小的数字所以程序没有运行太长时间)。使用了基本循环操作的parallel()显著提加快。
+
+如果使用iterate()来生成序列速度会急剧下降，可能是因为每次生成一个数字都会调用lambda。但是如果我们试着并行，比起非并行版本不仅仅是耗时较长，当sz达到百万时就会消耗完内存。当然你在使用range()的时候不会使用iterator()，但是如果你生成一些简单序列你必须使用iterator()。尝试使用parallel()也是很合理，但是会生成奇怪的结果。我们可以对流并行算法进行一些初步的观察：
+
+- 流并行将传入的数据分为多个部分，因此算法可以应用于这些单独的部分
+- 数组可以很容易分割，拆分尺寸也可以很好知道
+- 链表没有那些属性；拆分链表意味着分为第一个元素和其余元素，也是相当低效
+- 无状态的产生者就像数组；上面range()的使用就是无状态的
+- 迭代的产生者就像链表；iterator就是迭代的产生着
+
+现在让我们试着给数组填入一些值来解决问题，然后再对数组求和。因为数组是一次性分配，看起来我们不太会遇到垃圾回收时机的问题。
+
+首先我试着将原始的long类型填入数组：
+
+```java
+// Summing2.java
+import java.util.*;
+
+public class Summing2 {
+  static long basicSum(long[] ia) {
+    long sum = 0;
+    final int sz = ia.length;
+    for(int i = 0; i < sz; i++)
+      sum += ia[i];
+    return sum;
+  }
+  // Approximate largest value of SZ before
+  // running out of memory on my machine:
+  public static int SZ = 20_000_000;
+  public static final long CHECK =
+    (long)SZ * ((long)SZ + 1)/2;
+  public static void main(String[] args) {
+    System.out.println(CHECK);
+    long[] la = new long[SZ+1];
+    Arrays.parallelSetAll(la, i -> i);
+    Summing.timeTest("Array Stream Sum", CHECK, () ->
+      Arrays.stream(la).sum());
+    Summing.timeTest("Parallel", CHECK, () ->
+      Arrays.stream(la).parallel().sum());
+    Summing.timeTest("Basic Sum", CHECK, () ->
+      basicSum(la));
+    // Destructive summation:
+    Summing.timeTest("parallelPrefix", CHECK, () -> {
+      Arrays.parallelPrefix(la, Long::sum);
+      return la[la.length - 1];
+    });
+  }
+}
+/* Output:
+200000010000000
+Array Stream Sum: 114ms
+Parallel: 27ms
+Basic Sum: 33ms
+parallelPrefix: 49ms
+*/
 ```
 
-如果你改变主意重新指定了DEMO_ENABLE_MULTISAMPLE，你可以任何时候重新运行cmake。随后的运行中，你可以重新指定已有的二进制文件夹来代替传给cmake命令行的源文件夹。CMake将会从缓存中找到之前所有的设置，比如选择的生成器，然后重新运行它们。
+第一个限制是内存大小；因为数组要先分配，我们不能比前一个版本创建的更大。并行可以提升速度，甚至比仅仅使用循环的basicSum()还快。比较有趣的是，Arrays.parallelPrefix()没有我们想象的提升那么快。然而，上面的技术在其他条件都非常有用--这也是为什么不能下确定性结论的原因，你必须尝试一下。
 
-```bash
-cmake -DDEMO_ENABLE_MULTISAMPLE=0 .
+最后，考虑下使用包装类Long代替的影响：
+
+```java
+// Summing3.java
+import java.util.*;
+
+public class Summing3 {
+  static long basicSum(Long[] ia) {
+    long sum = 0;
+    final int sz = ia.length;
+    for(int i = 0; i < sz; i++)
+      sum += ia[i];
+    return sum;
+  }
+  // Approximate largest value of SZ before
+  // running out of memory on my machine:
+  public static int SZ = 10_000_000;
+  public static final long CHECK =
+    (long)SZ * ((long)SZ + 1)/2;
+  public static void main(String[] args) {
+    System.out.println(CHECK);
+    Long[] La = new Long[SZ+1];
+    Arrays.parallelSetAll(La, i -> (long)i);
+    Summing.timeTest("Long Array Stream Reduce",
+      CHECK, () ->
+      Arrays.stream(La).reduce(0L, Long::sum));
+    Summing.timeTest("Long Basic Sum", CHECK, () ->
+      basicSum(La));
+    // Destructive summation:
+    Summing.timeTest("Long parallelPrefix",CHECK, ()-> {
+      Arrays.parallelPrefix(La, Long::sum);
+      return La[La.length - 1];
+    });
+  }
+}
+/* Output:
+50000005000000
+Long Array Stream Reduce: 1046ms
+Long Basic Sum: 21ms
+Long parallelPrefix: 3287ms
+*/
 ```
 
-你可以通过运行cmake -L -N .来查看缓存的项目定义变量。这里你将能看到[CMakeDemo](https://github.com/preshing/CMakeDemo)中DEMO_ENABLE_MULTISAMPLE选项保留默认值0。
+现在，可用内存的大小大概被削减一半，除了basicSum()简单的通过数组内循环，其他所有的时间都大幅增长。更惊奇的是，Arrays.parallelPrefix()比其他方法消耗更多的时间。
 
-## 运行cmake-gui
+我分开了parallel()版本是因为把它运行在上个程序中会引起漫长的垃圾回收，影响了测试结果：
 
-我倾向于命令行，但是CMake也提供了图形界面。图形界面提供了交互式的缓存变量设置方法。同样，确保你安装了项目的依赖。
+```java
+// Summing4.java
+import java.util.*;
 
-运行cmake-gui来使用它，填入源文件路径和二进制路径，然后点击配置。
-
-<img src="./img/cmake_6.png" width="60" >
-
-如果二进制文件夹不存在，CMake将允许你创建它。它将再次询问你选择生成器。
-
-<img src="./img/cmake_7.png" width="60" >
-
-完成内部配置步骤后，图形界面将会展示缓存变量列表，和前面使用cmake -L -N .出来的效果差不多。新的缓存变量是红色的。你可以再次配置，红色高亮就会消失，自从变量不再是新的。
-
-<img src="./img/cmake_8.png" width="60" >
-
-如果你修改了一个缓存变量然后点击配置，新的缓存变量将会出现在你修改的结果中。红色高亮意味着帮助你看到任何新的变量，自定义它们然后重新配置。实际上，更改一个值不会经常引入新的缓存变量。它依赖于项目中CMakeLists.txt是如何写的。
-
-一旦你将缓存变量自定义为你喜欢的内容，点击生成。这将会在二进制文件夹中生成构建管道。你可以使用它们来构建你的项目。
-
-## 运行ccmake
-
-ccmake是一个类似cmake-gui的命令行。类似于图形界面，它允许你交互式设置缓存变量。它可以很方便的运行在远程机器上，如果你只能运行命令行。
-
-<img src="./img/cmake_8.png" width="60" >
-
-## 运行Unix Makefiles
-
-当在类Unix环境下使用命令行来运行CMake默认将会生成Unix makefile。当然，你可以显示的通过-G来指定。当生成makefile，你需要定义CMAKE_BUILD_TYPE变量。假定源文件夹是父目录：
-
-```bash
-cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ..
+public class Summing4 {
+  public static void main(String[] args) {
+    System.out.println(Summing3.CHECK);
+    Long[] La = new Long[Summing3.SZ+1];
+    Arrays.parallelSetAll(La, i -> (long)i);
+    Summing.timeTest("Long Parallel",
+      Summing3.CHECK, () ->
+      Arrays.stream(La).parallel().reduce(0L,Long::sum));
+  }
+}
+/* Output:
+50000005000000
+Long Parallel: 1008ms
+*/
 ```
 
-你需要定义变量CMAKE_BUILD_TYPE是因为CMake生成makefile是单配置。不像Visual Studio解决方案，你不能使用同一个makefile来构建多个配置例如Debug和Release。单个makefile恰好能够构建一种生成类型。默认，激活的类型是Debug, MinSizeRel, RelWithDebInfo 和 Release。小心，如果你忘记定义CMAKE_BUILD_TYPE，你可能会得到一个没有调试信息的未优化版本，这是无用的。更改不同的构建类型，你必须重新运行CMake来生成新的makefile。
+它比不使用parallel()版本稍稍快一点，但是不显著。
 
-个人觉得，CMake的默认Release版本配置没有用处，因为不生成任何调试信息。如果你打开了一个崩溃的dump或者在Release解决了一个bug，及时你在优化的版本中，你也会欣赏调试信息的重要性。这就是为什么在我的CMake项目中，我通常从CMakeLists.txt中删除Release配置，使用RelWithDebInfo来代替。
+引起时间增长的一个重要的原因是处理器内存缓存。在Summing2.java使用原始的long类型，数组la是连续的内存。处理器可以更容易的预期使用量，然后保持缓存中填满下次需要用到的数组元素。使用缓存相比起使用主内存速度会非常非常快。显然Long parallelPrefix受到了影响，因为它不仅仅读取每次计算的两个元素，而且将结果写会到数组中，每个数组都会为Long提供外部缓存。
 
-一旦makefile存在，你可以使用make来构建你的工程。默认make会构建CMakeLists.txt定义的每个目标。在[CMakeDemo](https://github.com/preshing/CMakeDemo)例子中，只有一个目标。你也可以指定目标来进行构建：
+在Summing3.java和Summing4.java中，La是一个Long类型数组，它们不是连续数组的数据，但是Long对象的连续数组的引用。尽快数组将会被缓存，但是指向的对象几乎总是没有命中缓存。
 
-```bash
-make CMakeDemo
+这些例子使用了不同的sz值来显示内存限制。下面是sz设置为1000万的最小值的结果。
+
+```command
+Sum Stream: 69ms
+Sum Stream Parallel: 18ms
+Sum Iterated: 277ms
+Array Stream Sum: 57ms
+Parallel: 14ms
+Basic Sum: 16ms
+parallelPrefix: 28ms
+Long Array Stream Reduce: 1046ms
+Long Basic Sum: 21ms
+Long parallelPrefix: 3287ms
+Long Parallel: 1008ms
 ```
 
-CMake生成的makefile会自动探测头文件依赖，因此编辑了一个头文件不会重新编译整个工程。你可以使用并行命令-j 4(或者更大的数字)来make。
+Java8中各种新的内置的并发工具非常好，我见证了它们被当做神奇的灵丹妙药：“所有你需要做的扔到parallel()会变得更快”。我希望我已经证明了不全是这样，如果盲目的应用内置的并发操作有的时候可能会变得更慢。
 
-CMake也揭露了[Ninja](https://ninja-build.org/)生成器。Ninja类似于make，但是更快。它生成一个build.ninja的文件，类似于Makefile。Ninja生成器也是单配置。Ninja的-j选项也可以自动检测活动的CPU个数。
+对并发性和并行性支持的语言和库似乎是“漏洞百出的抽象”一词的完美候选选项，但我开始怀疑是否真的有什么抽象的东西--在编写这些类型的代码时，你永远不会被任何底层系统和工具所隔离，甚至包括CPU缓存。归根到底，如果你非常小心，你创造的东西在特定的情况下是有用的，但是在不同的情况下它不会起作用。有时候差异是两个机器不同的配置方式，或者是程序的预计负载。这并非特定于Java本身--而是并发和并行编程的特质。
 
-## 使用Visual Studio构建
+你可能争论纯函数式语言不存在这些约束。事实上，纯函数式语言可以解决大部分问题。但最终，例如你编写的系统有一个队列，如果事情没有得到正确的调整，并且输入速率不是估计不正确就会限制了（节流意味着不同的事物，在不同的情况下具有不同的影响），该队列将被填充并阻止，或者溢出。最后，你必须理解所有的细节，任何问题都会破坏你的系统。这是一种不同的编程方式。
 
-我们将从命令行生成一个Visual Studio .sln文件。如果你安装了多个Visual Studio版本，你希望告诉cmake需要用哪个版本。同样假设源代码文件夹是父目录：
-
-```bash
-cmake -G "Visual Studio 15 2017" ..
-```
-
-上面命令会生成一个32位Visual Studio的.sln文件。使用CMake没有多平台的.sln文件，你必须指定64-bit生成器：
-
-```bash
-cmake -G "Visual Studio 15 2017 Win64" ..
-```
-
-在Visual Studio中打开.sln文件，转到解决方案浏览页面，右键点击你需要运行的目标，然后选择设置成启动项目。像之前一样构建和运行。
-
-<img src="./img/cmake_9.png" width="60" >
-
-注意CMake会增加2个目标到解决方案：ALL_BUILD 和 ZERO_CHECK。ZERO_CHECK会自动检测CMakeList.txt当变更的时候自动运行。ALL_BUILD通常构建所有的目标，使其在Visual Studio中有点冗余。如果你习惯于以某种方式设置解决方案，那么在.sln文件中设置这些额外的目标可能让人感到厌烦，但是你会习惯的。CMake允许你将目标和源文件组织到文件夹中，但我不会再例子中阐述这些。
-
-就像Visual Studio解决方案，你可以从解决方案配置下拉框随时更改构建类型。下面是例子默认的构建类型。同样，我觉得默认的Release配置没什么用是因为它不会产生任何调试信息。在我其他的CMake项目中，我通常从CMakeLists.txt删除Release配置使用RelWithDebInfo来代替它。
-
-## 在Visual Studio 2017内置CMake
-
-在Visual Studio 2017，微软介绍了另一种使用CMake的方式。你可以通过Visual Studio的文件->打开->文件夹菜单打开CMakeLists.txt。这个新的方法避免了创建.sln和.vcxproj文件。它同样支持在同样的工作区构建32位和64位。那看起来很不错，在我看来，由于一些原因不适合：
-
-- 如果在包含CMakeLists.txt文件的源文件目录外有一些源文件，在解决方案资源管理器就找不到
-- C/C++属性页面不再显示
-- 缓存变量只能通过编辑JSON文件来修改，相比Visual IDE不那么直观
-
-我不是一个真粉。现在，我还是倾向于使用CMake手动生成.sln文件。
-
-## 使用xcode构建
-
-CMake网站发布了一个支持MacOS的.dmg文件。.dmg文件包含一个app，你可以拖拽到应用程序文件夹。确保你这样安装了cmake，cmake在你没有创建/Applications/CMake.app/Contents/bin/cmake链接，可能没法正常激活。我习惯于从[MacPorts](https://www.macports.org/)安装因为它会替你设置命令行，就像SDL2同样可以被安装依赖。
-
-从CMake命令行指定xcode。同样，假设源文件路径是父目录：
-
-```bash
-cmake -G "Xcode" ..
-```
-
-这将会创建一个.xcodeproj文件夹。用xcode打开，在xcode工具条，点击"激活计划"下拉框选择你要运行的目标。
-
-<img src="./img/cmake_10.png" width="60" >
-
-然后点击"编辑计划"从同样的下拉框，在Run->Info下选择一个构建配置。同样不推荐使用Release配置，缺少调试信息会减少作用。
-
-<img src="./img/cmake_10.png" width="60" >
-
-最后，使用产品->构建按钮。可以让CMake生成xcode项目构建MacOS自用或框架。
-
-## 使用Qt Creator构建
-
-Qt Creator提供了内置的CMake支持，使用Makefile或者Ninja生成器。我使用Qt Creator 3.5.1测试了下面的步骤：
-
-在Qt Creator，使用文件->打开文件或项目...然后选择CMakeLists.txt你可以构建。
-
-<img src="./img/cmake_11.png" width="60" >
-
-Qt Creator快速打开二进制文件夹位置，称作"构建目录"。默认，它建议是源文件夹相邻的位置。你可以按你的想法更改。
-
-<img src="./img/cmake_12.png" width="60" >
-
-当提示重新运行CMake，当Makefile生成器是单配置确保CMAKE_BUILD_TYPE已经定义。你也可以指定项目指定变量，就像例子中的DEMO_ENABLE_MULTISAMPLE选项。
-
-<img src="./img/cmake_13.png" width="60" >
-
-最后，你可以通过Qt Creator的菜单或者使用Ctrl+Shift+B快捷键构建和运行项目。
-
-如果你想重新运行CMake，例如你想修改构建类型从Debug到RelWithDebInfo，转到Projects->Build & Run->Build，然后点击 “Run CMake”。
-
-<img src="./img/cmake_14.png" width="60" >
-
-CMakeDemo项目包含了单个可执行目标，但是如果你的项目包含了多个可执行目标，你可以告诉Qt Creator运行哪个，通过Projects -> Build & Run -> Run然后更改"Run configuration"。下拉框会从构建管道的可执行目标自动构成。
-
-<img src="./img/cmake_15.png" width="60" >
-
-## 其他CMake特性
-
-- 你可以从命令行执行一个构建，不管生成器是否使用：cmake --build . --target CMakeDemo --config Debug
-- 你可以通过CMAKE_TOOLCHAIN_FILE变量来创建一个给其他环境交叉编译的构建管道
-- 你可以生成一个compile_commands.json文件供给Clang的[LibTooling](https://clang.llvm.org/docs/LibTooling.html)库。
-
-我非常欣赏CMake帮助整合各种各样C/C++组件和编译它们到所有的环境中。它也不是没有缺点，但是一旦你熟练掌握了它，开源世界就是你的牡蛎，即使在集成非CMake项目中也是如此。我的下一篇文章将是一个速成课程，讲的是CMake脚本语言。
-
-如果你想成为一个超级用户，而又不介意花几块钱，作者的大作[Mastering CMake](https://www.amazon.com/gp/product/1930934319?ie=UTF8&tag=preshonprogr-20&camp=1789&linkCode=xm2&creativeASIN=1930934319)是一个不错的选择。那些文章[The Architecture of Open Source Applications](http://aosabook.org/en/cmake.html)读起来也很有趣。
+我想知道对此的反馈，如果我有任何明显的失误，请在评论中留言，感谢！
