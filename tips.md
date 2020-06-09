@@ -1,33 +1,27 @@
-# FileZilla远程路径中文显示乱码
-
-在FTP服务器使用FileZilla连接，远程中文路径显示乱码，通过站点管理中的字符集标签页设置：使用自定义的字符集->编码：GB2312
-
-# MFC自动化测试
-
-[pywinauto](http://pywinauto.github.io/)
-
-## 1. 根据标题获取已经打开的窗口
-
 ```python
-app = Application().connect(title=r"登陆-xxx")
-```
+from bs4 import BeautifulSoup
+import pandas as pd
+import os
 
-## 2. 获取所有的控件
+with open("C:\\test.html") as fp:
+    soup = BeautifulSoup(fp, features="lxml")
 
-```python
-dlg = app.top_window()
-print(dlg.print_control_identifiers()
-```
+table = soup.body.table
+result = []
+for tr in table.find_all("tr"):
+    listTemp = []
+    td0 = tr.find_all("td")[0]
+    td1 = tr.find_all("td")[1]
+    td2 = tr.find_all("td")[2]
+    td3 = tr.find_all("td")[3]
+    td4 = tr.find_all("td")[4]
+    listTemp.append(td0.string)
+    listTemp.append(td1.string)
+    listTemp.append(td2.string)
+    listTemp.append(td3.string)
+    listTemp.append(td4.string)
+    result.append(listTemp)
 
-## 3. 填入text文本框
-
-```python
-dlg[u'工号：Edit'].set_text('xxx')
-dlg[u'密码：Edit'].set_text('xxx')
-```
-
-## 4. 点击按钮登陆
-
-```python
-dlg['Button3'].click()
+df1 = pd.DataFrame(result)
+df1.to_excel("C:\\log.xlsx", header=False, index=False)
 ```
