@@ -25,3 +25,11 @@ for tr in table.find_all("tr"):
 df1 = pd.DataFrame(result)
 df1.to_excel("C:\\log.xlsx", header=False, index=False)
 ```
+
+## 计算当前日期是第几周
+
+```python
+from datetime import date
+date.today().isocalendar()[1]
+date(2020, 4, 23).isocalendar()[1]
+```
