@@ -1,223 +1,104 @@
-# 什么是拷贝和转换
+# 为什么Golang是我最喜欢的编程语言
 
-[What is the copy-and-swap idiom?](https://stackoverflow.com/questions/3279543/what-is-the-copy-and-swap-idiom/3279550#3279550)
+[Why Go is my favorite programming language](https://michael.stapelberg.ch/posts/2017-08-19-golang_favorite/#getting-started)
 
-## 概述
+我努力尊重每个人的个人喜好，所以我经常避开辩论哪个是最好的编程语言、文本编辑器或操作系统。
 
-### 什么时候我们需要拷贝和转换？
+然而，最近最近有很多次被问到为什么大量使用Go以及原因，所以这是一个连续的文章来填补特别是我个人的一些拙见:-).
 
-任何管理资源的类(一个包装类，例如智能指针)需要实现[The Big Three](https://stackoverflow.com/questions/4172722/what-is-the-rule-of-three)。拷贝构造和析构的目的和实现都很简单直接，拷贝赋值操作大概有一些微妙和困难。该怎么做呢？有什么陷阱需要避免呢？
+## 我的背景
 
-拷贝和转换术语就是解决方案，并且优美的解决了赋值操作在两种情况下：避免代码重复和提供一个强健的异常保证。
+我使用C和Perl做了一些看起来还比较体面的项目。我写过Python，Ruby，C++，CHICKEN Scheme，Emacs Lisp，Rust和Java(仅仅是Android)。我了解一些Lua，PHP，Erlang和Haskell。在早些时间，我用Delphi开发了不少项目。
 
-### 怎么工作
+我在2009年简短的看过Go，当时是第一版Release。我正式使用Go是在2012年Go 1.0已经有了Release版本，实践了[Go 1 兼容性保障](https://golang.org/doc/go1compat)。现在仍然有我2012年写的代码跑在生产环境上，几乎没有改动过。
 
-从概念上讲，使用拷贝构造函数来创建一个本地的拷贝数据，然后将拷贝数据用swap函数交换新旧数据。临时的拷贝则进行析构，旧的数据则被释放。我们则留下了新数据的一份拷贝。
+### 1. 清晰
 
-为了使用拷贝和交换，我们需要三件事情：一个拷贝构造，一个析构（同时也是所有包装类的基类，因此可以完成任意的），和一个swap函数。
+#### 格式化
 
-一个swap函数是一个不抛出异常的函数，可以交换两个类的对象，成员和成员。我们可能尝试使用std::swap来代替我们自己的实现，但是这是不可能的；std::swap使用了拷贝构造和拷贝赋值操作在它的实现中，因此我们最后试着依据它们定义赋值操作。
+Go代码，约定俗成，使用gofmt进行格式化。格式化代码不是新鲜的场景，但是相反的，gofmt恰恰支持一种规范的格式。
 
-（不仅仅是这些，不合格的调用swap将会使用我们自己的swap操作，跳过不需要的构造和析构在我们的类中，std::swap是必须的）
+将所有代码按一种格式格式化有助于更好的阅读代码；会感觉到代码更熟悉。这不仅对阅读Go编译器或者标准库有利，同时当参与大型项目--开源项目或者大公司项目。
 
-## 深度的解释
+此外，自动格式化在代码走查能节省大量时间，因为它消除了评审前整个代码的分歧。现在你可以让你的持续集成系统验证gofmt不产生差异。
 
-### 目的
+更有趣的是，我的编辑器在保存文件自动调用gofmt，改变了我写代码的方式。我曾经尝试匹配格式化程序将执行什么，然后改正我的错误。如今，我尽快来表达我的想法和新人gofmt能将它变的漂亮。
 
-让我们考虑下具体的情况。我们希望管理，在一个无效的类，一个动态的数组。我们使用构造函数，拷贝构造和析构：
+#### 高质量代码
 
-```cpp
-#include <algorithm>  // std::copy
-#include <cstddef>  // std::size_t
+我使用大量的标准库，如下。
 
-class dumb_array {
- public:
-  // (default) constructor
-  dumb_array(std::size_t size = 0)
-    : mSize(size), mArray(mSize ? new int[mSize]() : nullptr) {}
+迄今我读过所有的标准库，代码质量都非常高。
 
-  // copy-constructor
-  dumb_array(const dumb_array& other)
-    : mSize(other.mSize), mArray(mSize ? new int[mSize] : nullptr) {
-    // note that this is non-throwing, because of the data
-    // types being used; more attention to detail with regards
-    // to exceptions must be given in a more general case, hower
-    std::copy(other.mArray, other.mArray + mSize, mArray);
-  }
-  
-  // destructor
-  ~dumb_array() {
-    delete[] mArray;
-  }
+一个例子是[image/jpeg](https://golang.org/pkg/image/jpeg/)包：我不知道JPEG如何工作，但是它很容易的从[Wikipedia JPEG article](https://en.wikipedia.org/wiki/JPEG)和[image/jpeg](https://golang.org/pkg/image/jpeg/)重新捡起来。如果包中有些许注释，我会说它是一个教学的实现。
 
- private:
-  std::size_t mSize;
-  int* mArray;
-}
-```
+#### 见解
 
-这个类可以成功管理数组，但是需要operator=才能工作正确。
+我非常赞同Go社区的一些见解，例如：
 
-### 一个失败的方案
+- 默认情况下变量名应该简短，从它的声明更多的名字被使用，更进一步应该变得更具有描述性。
+- 保持依赖树更小：[a little copying is better than a little dependency](https://www.youtube.com/watch?v=PAAkCSZUG1c&t=9m28s)。
+- 引入抽象层是有成本的。Go代码通常非常清晰，代价是有时候会有一些重复代码。
+- 更多查看[CodeReviewComments](https://github.com/golang/go/wiki/CodeReviewComments)和[Go Proverbs](https://go-proverbs.github.io/)。
 
-这是一个幼稚的实现大概看起来是这样：
+#### 更少的关键字和抽象层
 
-```cpp
-// the hard part
-dumb_array& operator=(const dumb_array& other) {
-  if (this != &other) {  // (1)
-    // get rid of the old data...
-    delete[] mArray;  // (2)
-    mArray = nullptr;  // (2) *(see footnote for rationale)
+Go只有仅仅25个关键字，所有的都可以容易的记在脑子里。
 
-    // ...and put in the new
-    mSize = other.mSize;  // (3)
-    mArray = mSize ? new int[mSize] : nullptr;  // (3)
-    std::copy(other.mArray, other.mArray + mSize, mArray);  // (3)
-  }
+同样[内置函数](https://golang.org/pkg/builtin/)和[类型](https://golang.org/ref/spec#Types)。
 
-  return *this;
-}
-```
+在我的经验中，更少的抽象层和上下文的语言可以容易上手和更快的感到舒适。
 
-可以说我们完成了；现在可以管理数组，没有内存泄漏。但是忍受了三个问题，在代码中相继的标记为(n)。
+当我们讨论这些，我很惊讶如何读[Go specification](https://golang.org/ref/spec)。它看起来更像是给目标程序员(相比起标准库提交者)。
 
-1. 第一个是测试自身赋值。这个检查有两个目的：这是一个简单的方式阻止我们从不必要的代码运行自身赋值，它也从微妙的bug保护我们（比如拷贝的时候尝试删除数组）。但是在其他情况仅仅充当降低程序噪音；自身赋值几乎不会发生，所以大多数这样的时间都是浪费。如果不用刻意工作是更好的。
-2. 第二点仅仅提供了基本的异常保证。如果new int[mSize]失败，*this将会被改变。（也就是说，size是错误的，data也已经失效）作为强健的异常保证，将需要类似这样的：
+### 2. 速度
 
-```cpp
-dumb_array& operator=(const dumb_array& other) {
-  if (this != &other) {  // (1)
-    // get the new data ready before we replace the old
-    std::size_t newSize = other.mSize;
-    int* newArray = newSize ? new int[newSize]() : nullptr;  // (3)
-    std::copy(other.mArray, other.mArray + newSize, newArray);  // (3)
+#### 快速反馈低延迟
 
-    // replace the old data(all are non-throwing)
-    delete[] mArray;
-    mSize = newSize;
-    mArray = newArray;
-  }
+我喜欢快速反馈：我很赏识加载快速的网站，我喜欢流畅不滞后的用户界面，在以后任何一天相比起选择强大的工具我都会选择快速的工具。大型网站的调查结果证实，这都是很多行为共享的。
 
-  return *this;
-}
-```
+Go编译器的作者尊重我低延迟的意愿：编译速度对他们很重要，在是否会减慢编译速度的优化他们会仔细权衡。
 
-3. 代码被扩大了。将会导致第三个问题：代码重复。我们的赋值操作出现在每个需要写的地方，这是一个糟糕的事情。
+我的一个朋友以前从来没使用过Go。在使用go get安装了[RobustIRC](https://robustirc.net/)后，他认为Go肯定是解释性语言然后我去给他们纠正：不，Go编译器就是这么快。
 
-在我们的案例中，核心就仅仅两行（分配和拷贝），但是有更多复杂的资源操作在这个代码中使得很麻烦。我们正确不要重复我们的代码。
+大多数的Go工具都不含有异常，例如gofmt和goimports是如此之快。
 
-（有人可能会怀疑：如果这个代码需要管理一个正确的资源，我们的类如何管理更多的？这看起来像是一个无效的方案，实际上确实需要避免try/catch操作，这是一个无问题的。因为一个类需要管理仅仅一个资源！）
+#### 最大化的资源利用
 
-### 一个成功的方案
+批处理应用(而不是交互性应用)，它们充分利用现有资源比低延迟更重要。利用所有可用的IPOS、网络带宽和计算，Go程序可以很容易的配置和使用。例如，我写了一个[filling a 1 Gbps link](https://people.debian.org/~stapelberg/2014/01/17/debmirror-rackspace.html)，然后优化[debiman](https://github.com/Debian/debiman/)利用所有可用资源，减少运行时间数小时。
 
-就像上面提及的，拷贝和转换操作可以解决这些问题。但是现在，我们有所有需要的除了一样：一个swap函数。虽然三个法则成功的要求我们要有拷贝构造，赋值和析构，实际上被称作“三个大的和半个”：任何时候你的类管理资源都会提供有意义的swap函数。
+### 3. 强大的标准库
 
-我们需要增加swap函数到我们的类中，就像这样：
+Go标准库提供了有效通用的通讯协议和数据存储格式/机制，例如TCP/IP，HTTP，JPEG，SQL等等。
 
-```cpp
-class dumb_array {
- public:
-  // ...
+Go的标准库是我看过的所有标准库里面最好的。我认为它有良好的组织，干净，短小，更全面：我经常发现只使用标准库就可以编写出功能强大的应用，最多增加一两个额外的包。
 
-  friend void swap(dumb_array& first, dumb_array& second) {
-    // enable ADL(not necessary in our case, but good practice)
-    using std::swap;
+特定域的数据结构和算法没有包含在标准库之中，例如[golang.org/x/net/html](https://godoc.org/golang.org/x/net/html)。golang.org/x命名空间提供了即将要加入到标准库中的新的类库。Go 1版本的兼容性保证排除了任何重大的更改，显然是值得的。最显著的例子就是golang.org/x/crypto/ssh，必须破坏现有的代码至[establish a more secure default](https://github.com/golang/crypto/commit/e4e2799dd7aab89f583e1d898300d96367750991)。
 
-    // by swapping the numbers of two objects,
-    // the two objects are effectively swapped
-    swap(first.mSize, second.mSize);
-    swap(first.mArray, second.mArray);
-  }
+### 4. 工具
 
-  // ...
-};
-```
+下载，编译，安装和升级Go包，我使用go get工具。
 
-（[这里](https://stackoverflow.com/questions/5695548/public-friend-swap-member-function)解释了为什么用public friend swap.）现在不仅仅是可以交换dmb_array，交换普通的是更有效率；它不仅仅是交换指针和大小，同时也分配和拷贝了整个数组。除了功能性和效率的红利，我们现在可以实现拷贝和转换操作。
+所有我使用的代码库使用内置的测试机制。这个结果不仅仅是简单、快速的测试，而且也生成可读的报告。
 
-不需要再进一步，我们的赋值操作是这样：
+  每当程序使用比预期多的资源，我就会发动pprof。查看[golang.org blog post about pprof](https://blog.golang.org/profiling-go-programs)的介绍，或者[my blog post about optimizing Debian Code Search](https://people.debian.org/~stapelberg/2014/12/23/code-search-taming-the-latency-tail.html)。在导入pprof包后，你可以不用重新编译或重启来配置你的服务。
 
-```cpp
-dumb_array& operator=(dumb_array other) {  // (1)
-  swap(*this, other);  // (2)
-  return *this;
-}
-```
+  交叉编译在设置了GOARCH环境变量后变得非常容易，例如GOARCH=arm64可以生成树莓派3目标程序。注意，工具也会跨平台工作。例如，我可以在amd64电脑配置gokrazy：go tool pprof ~/go/bin/linux_arm64/dhcp <http://gokrazy:3112/debug/pprof/heap>。
 
-就这样，三个问题一下子就被巧妙的解决了。
+  godoc通过HTTP可以显示成超文本格式文档。<godoc.org>是一个公共的实例，但是我一般在离线或者没有发布包的情况下使用本地实例。
 
-### 它为什么工作？
+  请注意，这些是语言标准工具。使用C，完成以上每个都是一项壮举。使用Go，我们认为是理所当然的。
 
-我们首先注意到一个重要的选择：参数类型是值类型。虽然人们可以很容易的做以下事情（实际上，许多朴素的实现了这些）：
+## 开始
 
-```cpp
-dumb_array& operator=(const dumb_array& other) {
-  dumb_array temp(other);
-  swap(*this, temp);
-  return *this;
-}
-```
+  希望我能够说清楚我为什么喜欢用Go。
 
-我们失去了一个重要的优化时机。不仅仅这样，C++11选择的临界点，稍后就会讨论。（一般的，一个显著的指南如下：如果你想在函数中复制一些东西，让编译器通过参数列表完成它）
+  如果你有兴趣使用Go，查看[the beginner’s resources](https://github.com/gopheracademy/gopher/blob/1cdbcd9fc3ba58efd628d4a6a552befc8e3912be/bot/bot.go#L516)我们指出了如何加入Go开发者的slack频道。查看<https://golang.org/help/>。
 
-不管怎样，这个获得资源的方法是消除重复代码的关键因素：我们通过拷贝构造来获得拷贝，从来不需要重复任何一点。现在拷贝已经有了，我们准备交换它。
+## 警告
 
-观察到上面整个函数新的数据已经分配、拷贝和等待使用。这就是异常给我们在强有力的保证：如果拷贝失败了就不会进入到函数中，因此也不会有改变*this状态的可能。（在我们手动保证异常之前，编译器会自动完成；多么完美）
+当然，没有编程工具是完全没有问题的。通过这个文章解释了我为什么喜欢Go语言，它的重点是积极地。我将会提到几个问题：
 
-这一点上我们已经大功告成，因为swap是不抛出异常。我们将当前数据和副本数据交换，安全的修改状态，旧的数据将会放到临时变量。在函数返回时旧的变量将会释放。（在参数作用于结束析构函数会被调用）
-
-因为方案没有重复代码，我们不能在这个操作中介绍bug。注意这意味着我们摆脱自身赋值的检查，允许单独统一实现的operator=操作。（额外的，我不需要在非自身赋值有性能浪费。）
-
-到底什么是拷贝和交换。
-
-### C++11是什么状况？
-
-下一个版本的C++，C++11，其中一项很重要的变化是如何管理资源：三个规则现在变为四个规则（和半个）。为什么？因为我们不仅仅需要拷贝构造我们的资源，还需要移动构造。
-
-幸运的，这非常容易：
-
-```cpp
-class dumb_array
-{
-public:
-    // ...
-
-    // move constructor
-    dumb_array(dumb_array&& other) noexcept
-        : dumb_array() // initialize via default constructor, C++11 only
-    {
-        swap(*this, other);
-    }
-
-    // ...
-};
-```
-
-怎么回事？重调移动构造的目的：从类的另外一个实例获取资源，将其置于可转让且可销毁的状态。
-
-因此我们要做的就很简单：通过默认构造初始化（C++11新特性），然后用other交换；我们知道一个默认的构造的实例可以安全的分配和析构，所以我们知道other也可以这样，在交换后。
-
-（注意有些编译器不支持委托构造；既然这样，我们需要手动默认构造类。这是不幸的但是不影响大局）
-
-### 它们如何工作？
-
-这将是我们需要改变的地方，因此如何工作？永远记住我们将参数作为值而非引用使用：
-
-```cpp
-dumb_array& operator=(dumb_array other);  // (1)
-```
-
-现在如果other通过右值初始化，它将是移动构造。非常不错。以同样的方式，C++03让我们重新使用值类型的复制构造函数，C++11将在适当时自动选取移动构造函数。（当然，正如之前链接文章中提到，复制/移动该值可以简单的完全省略）
-
-所以复制和交换属于结束了。
-
-## 脚注
-
-为什么将mArray设置成null？因为如果有任何代码特性在操作中抛出，dumb_array的析构也会被调用；如果发生的时候没有设置为null，我们将试图释放内存！我们通过设置为null来避免，释放null无操作。
-
-其他宣称我们需要给我们的类型指定std::swap，在自由函数swap旁边提供一个类内置swap，等等。但是这不是必须的：在适用swap的时候通过不适当的调用，我们的函数通过[ADL](http://en.wikipedia.org/wiki/Argument-dependent_name_lookup)将会找到。一个函数将执行。
-
-原因很简单：一旦你有资源，在需要的时候你应该交换或者移动它(C++11)在任何时候。通过在参数列表中创建副本可以最大化优化。
-
-移动构造函数需要指定noexcept，否则某些代码（例如：std::vector逻辑修改大小）将使用复制构造函数，即使移动构造有意义。当然，仅仅在代码内部没有引发异常的情况下，才可以标记为noexcept。
+- 如果你使用的包没有稳定的API，你可能还需要一种特定的，可以正常工作的版本。你最好的选择是dep工具，在写这篇文章的时候还不是语言内置的工具。
+- 习惯于Go代码不一定能转换为高性能的机器码，和运行时最小消耗。在极少数情况下我发现性能缺失，我成功的用cgo或者汇编解决了。如果你的场景是强实时应用或及其性能关键的代码，你的经历可能会有所不同。
+- 我说到过Go标准库是我看到的所有标准库中最好的，但不是说没有一点问题。一个例子就是当通过旧的标准库包修改Go代码就会[complicated handling of comments](https://golang.org/issues/20744)。
