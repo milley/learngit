@@ -9,7 +9,7 @@ let match = re_qq.test(qq_str) && qq_str.length < 12;
 console.log(match)
 
 // wx length
-let re_phone = /^[1][3-8][0-9]{9}$/;
+let re_phone = /^1(3\d|4[5-9]|5[0-35-9]|6[567]|7[0-8]|8\d|9[0-35-9])\d{8}$/;
 let phone_str = "13388880000";
 
 match = re_phone.test(phone_str);
