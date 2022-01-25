@@ -1,16 +1,17 @@
-mingw64链接失败:
+javascript regex
 
-```cmd
-$ g++ -g -Wall -I../../leveldb-mingw-master/include ./simple_main.cc ./lib/libLeveldb.a -o simple_main
-./lib/libLeveldb.a(env_win.o): In function `leveldb::Win32::Win32MapFile::_Init(wchar_t const*)':
-E:\gh_source\leveldb-mingw-master\build/../util/env_win.cc:624: undefined reference to `__imp_PathFileExistsW'
-./lib/libLeveldb.a(env_win.o): In function `leveldb::Win32::Win32Env::FileExists(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)':
-E:\gh_source\leveldb-mingw-master\build/../util/env_win.cc:764: undefined reference to `__imp_PathFileExistsW'
-collect2.exe: error: ld returned 1 exit status
-```
+```js
+// qq regex test
+let re_qq = /[1-9][0-9]{4,}/;
+let qq_str = "25555432";
 
-查API需要包含#include "Shlwapi.h"头文件，再通过[stackoverflow](https://stackoverflow.com/questions/48882332/c-undefined-reference-to-pathfileexistsw-imp-pathfileexistsw4)描述得知需要链接-lshlwapi，因此修改编译命令解决。
+let match = re_qq.test(qq_str) && qq_str.length < 12;
+console.log(match)
 
-```cmd
-g++ -g -Wall -I../../leveldb-mingw-master/include ./simple_main.cc ./lib/libLeveldb.a -o simple_main -lshlwapi
+// wx length
+let re_phone = /^[1][3-8][0-9]{9}$/;
+let phone_str = "13388880000";
+
+match = re_phone.test(phone_str);
+console.log(match);
 ```
