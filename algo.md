@@ -1,125 +1,59 @@
-# lc37 solveSudoku
+## lc27 removeElements
 
-```c++
-#include <vector>
-#include <iostream>
+```python3
+class Solution:
+    def removeElement(self, nums: List[int], val: int) -> int:
+        n = len(nums)
+        i = -1
+        j = 0
+        cnt = 0
+        while j <= n - 1:
+            if nums[j] != val:
+                i += 1
+                cnt += 1
+                nums[i] = nums[j]
+            j += 1
+        
+        #print(nums)
+        return cnt
+```
 
-using namespace std;
+## lc283 removeZeros
 
-class Solution {
-public:
-	void solveSudoku(vector<vector<char>>& board) {
-		isValidSudoku(board);
-	}
-	bool isValidSudoku(vector<vector<char>>& board) {
-		int i = 0;
-		for (vector<vector<char>>::iterator iterRow = board.begin(); iterRow != board.end(); ++iterRow)
-		{
-			int j = 0;
-			vector<char> rowVector = *iterRow;
-			for (vector<char>::iterator iterCol = rowVector.begin(); iterCol != rowVector.end(); ++iterCol)
-			{
-				char ch = *iterCol;
-				if (ch >= '1' && ch <= '9')
-				{
-					j++;
-					continue;
-				}
-				else if (ch == '.')
-				{
-					for (char inCh = '1'; inCh <= '9'; ++inCh)
-					{
-						if (isValid(board, inCh, i, j))
-						{
-							board[i][j] = inCh;
-							if (isValidSudoku(board))
-							{
-								return true;
-							}
-							else
-							{
-								board[i][j] = '.';
-							}
-						}
-					}
-					return false;
-				}
-				j++;
-			}
-			i++;
-		}
-		return true;
-	}
+```python3
+from typing import List
 
-	bool isValid(vector<vector<char>>& board, char inCh, int idx, int jdx)
-	{
-		int i = 0;
-		for (vector<vector<char>>::iterator rowIter = board.begin(); rowIter < board.end(); ++rowIter)
-		{
-			int j = 0;
-			vector<char> rowVector = *rowIter;
-			if (rowVector.at(jdx) == inCh)
-			{
-				return false;
-			}
-			for (vector<char>::iterator colIter = rowVector.begin(); colIter < rowVector.end(); ++colIter)
-			{
-				if (*colIter == inCh && i == idx)
-				{
-					return false;
-				}
-				int startRow = (idx / 3) * 3;
-				int endRow = (idx / 3) * 3 + 2;
-				int startCol = (jdx / 3) * 3;
-				int endCol = (jdx / 3) * 3 + 2;
-				if (i >= startRow && i <= endRow && j >= startCol && j <= endCol)
-				{
-					if (*colIter == inCh)
-					{
-						return false;
-					}
-				}
-				j++;
-			}
-			i++;
-		}
-		return true;
-	}
-};
-
-int main()
-{
-	char arr[9][9]  = {
-	{'5','3','.','.','7','.','.','.','.'},
-	{'6','.','.','1','9','5','.','.','.'},
-	{'.','9','8','.','.','.','.','6','.'},
-	{'8','.','.','.','6','.','.','.','3'},
-	{'4','.','.','8','.','3','.','.','1'},
-	{'7','.','.','.','2','.','.','.','6'},
-	{'.','6','.','.','.','.','2','8','.'},
-	{'.','.','.','4','1','9','.','.','5'},
-	{'.','.','.','.','8','.','.','7','9'}
-	};
-
-	vector<vector<char>> board(9, vector<char>(9));
-	for (int i = 0; i < 9; i++)
-	{
-		for (int j = 0; j < 9; j++)
-		{
-			board[i][j] = arr[i][j];
-		}
-	}
-	
-	Solution solution;
-	solution.solveSudoku(board);
-
-	for (int i = 0; i < 9; i++)
-	{
-		for (int j = 0; j < 9; j++)
-		{
-			cout << board[i][j] << " ";
-		}
-		cout << endl;
-	}
-}
+class Solution:
+    def moveZeroes(self, nums: List[int]) -> None:
+        """
+        Do not return anything, modify nums in-place instead.
+        """
+        length = len(nums)
+        for i in range(length):
+            j = i + 1
+            while j < length and nums[j] == 0:
+                j = j + 1
+            
+            #print("i = {0}, j = {1}".format(i, j))
+            if nums[i] == 0 and j < length:
+                nums[i], nums[j] = nums[j], nums[i]
+            
+        #print(nums)
+        
+    def moveZeroes1(self, nums: List[int]) -> None:
+        """
+        Do not return anything, modify nums in-place instead.
+        """
+        n = len(nums)
+        i = -1
+        j = 0
+        # nums[0....i]表示非0元素的数列,初始值i=-1
+        while j <= n-1:
+            if nums[j] != 0:
+                i += 1
+                nums[i] = nums[j]
+            j += 1
+        for k in range(i+1, n):
+            nums[k] = 0
+        print(nums)
 ```
