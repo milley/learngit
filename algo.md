@@ -1,113 +1,45 @@
-## lc26 removeDuplicated
+## lc167 two sum II
 
 ```python3
 from typing import List
 
 class Solution:
-    def removeDuplicates(self, nums: List[int]) -> int:
-        if not nums:
-            return 0
-        
-        n = len(nums)
-        i = 1
-        j = 1
-        while j < n:
-            if nums[j] != nums[j - 1]:
-                nums[i] = nums[j]
-                i += 1
-            j += 1
-        
-        print(nums)
-        return i
-```
-
-## lc27 removeElements
-
-```python3
-class Solution:
-    def removeElement(self, nums: List[int], val: int) -> int:
-        n = len(nums)
-        i = -1
-        j = 0
-        cnt = 0
-        while j <= n - 1:
-            if nums[j] != val:
-                i += 1
-                cnt += 1
-                nums[i] = nums[j]
-            j += 1
-        
-        #print(nums)
-        return cnt
-```
-
-## lc80 removeDuplicatedII
-
-```python3
-from typing import List
-
-class Solution:
-    def removeDuplicates(self, nums: List[int]) -> int:
-        if not nums:
-            return 0
-        
-        n = len(nums)
-        
-        flag = False
-        i = 1
-        j = 1
-        while j < n:
-            if nums[j] != nums[j - 1]:
-                flag = False
-                nums[i] = nums[j]
-                i += 1
+    def twoSum(self, numbers: List[int], target: int) -> List[int]:
+        n = len(numbers)
+        for i in range(n):
+            low, high = i + 1, n - 1
+            while low <= high:
+                mid = (low + high) // 2
+                if numbers[mid] == target - numbers[i]:
+                    return [i + 1, mid + 1]
+                elif numbers[mid] > target - numbers[i]:
+                    high = mid - 1
+                else:
+                    low = mid + 1
+        return [-1, -1]
+    
+    def twoSum1(self, numbers: List[int], target: int) -> List[int]:
+        n = len(numbers)
+        i = 0
+        j = n - 1
+        while i < j:
+            if numbers[i] + numbers[j] == target:
+                return [i + 1, j + 1]
             else:
-                if not flag:
-                    nums[i] = nums[j]
+                if numbers[i] + numbers[j] < target:
                     i += 1
-                flag = True
-            j += 1
-        
-        #print(nums)
-        return i
-```
+                else:
+                    j -= 1
+        return []
+    
+def main():
+    solution = Solution()
+    list = [2,7,11,15]
+    target = 9
+    l = solution.twoSum1(list, target)
+    print(l)
+    
+if __name__ == '__main__':
+    main()
 
-## lc283 removeZeros
-
-```python3
-from typing import List
-
-class Solution:
-    def moveZeroes(self, nums: List[int]) -> None:
-        """
-        Do not return anything, modify nums in-place instead.
-        """
-        length = len(nums)
-        for i in range(length):
-            j = i + 1
-            while j < length and nums[j] == 0:
-                j = j + 1
-            
-            #print("i = {0}, j = {1}".format(i, j))
-            if nums[i] == 0 and j < length:
-                nums[i], nums[j] = nums[j], nums[i]
-            
-        #print(nums)
-        
-    def moveZeroes1(self, nums: List[int]) -> None:
-        """
-        Do not return anything, modify nums in-place instead.
-        """
-        n = len(nums)
-        i = -1
-        j = 0
-        # nums[0....i]表示非0元素的数列,初始值i=-1
-        while j <= n-1:
-            if nums[j] != 0:
-                i += 1
-                nums[i] = nums[j]
-            j += 1
-        for k in range(i+1, n):
-            nums[k] = 0
-        print(nums)
 ```
