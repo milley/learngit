@@ -53,17 +53,58 @@ class Solution:
         i = 0
         j = n - 1
         while i < j:
-            if not s[i:i+1].isalnum():
+            if not s[i].isalnum():
                 i += 1
                 continue
-            if not s[j:j+1].isalnum():
+            if not s[j].isalnum():
                 j -= 1
                 continue
-            if s[i:i+1].lower() == s[j:j+1].lower():
+            if s[i].lower() == s[j].lower():
                 i += 1
                 j -= 1
             else:
                 #print("i={}, j={}".format(i, j))
                 return False
         return True
+    
+def main():
+    solution = Solution()
+    #s = "A man, a plan, a canal: Panama"
+    s = "race a car"
+    b = solution.isPalindrome(s)
+    assert(b == False)
+
+if __name__ == '__main__':
+    main()
+```
+
+## lc345 Reverse Vowels of a String
+
+```python3
+class Solution:
+    def reverseVowels(self, s: str) -> str:
+        i, j = 0, len(s) - 1
+        l = list(s)
+        vowels = "aeiou"
+        while i < j:
+            if vowels.find(s[i].lower()) == -1:
+                i += 1
+                continue
+            if vowels.find(s[j].lower()) == -1:
+                j -= 1
+                continue
+            if vowels.find(s[i].lower()) != -1 and vowels.find(s[j].lower()) != -1:
+                l[i], l[j] = l[j], l[i]
+                i, j = i + 1, j - 1
+        return "".join(l)
+                
+def main():
+    solution = Solution()
+    #s = "hello"
+    s = "leetcode";
+    ret_str = solution.reverseVowels(s)
+    print(ret_str)
+    
+if __name__ == '__main__':
+    main()
 ```
