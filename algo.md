@@ -43,3 +43,27 @@ if __name__ == '__main__':
     main()
 
 ```
+
+## lc125 Valid Palindrome
+
+```python3
+class Solution:
+    def isPalindrome(self, s: str) -> bool:
+        n = len(s)
+        i = 0
+        j = n - 1
+        while i < j:
+            if not s[i:i+1].isalnum():
+                i += 1
+                continue
+            if not s[j:j+1].isalnum():
+                j -= 1
+                continue
+            if s[i:i+1].lower() == s[j:j+1].lower():
+                i += 1
+                j -= 1
+            else:
+                #print("i={}, j={}".format(i, j))
+                return False
+        return True
+```
