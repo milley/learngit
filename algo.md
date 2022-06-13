@@ -1,181 +1,112 @@
-## lc167 two sum II
+### lc142
 
 ```python3
-from typing import List
+# Definition for singly-linked list.
+class ListNode:
+    def __init__(self, x):
+        self.val = x
+        self.next = None
 
 class Solution:
-    def twoSum(self, numbers: List[int], target: int) -> List[int]:
-        n = len(numbers)
-        for i in range(n):
-            low, high = i + 1, n - 1
-            while low <= high:
-                mid = (low + high) // 2
-                if numbers[mid] == target - numbers[i]:
-                    return [i + 1, mid + 1]
-                elif numbers[mid] > target - numbers[i]:
-                    high = mid - 1
-                else:
-                    low = mid + 1
-        return [-1, -1]
-    
-    def twoSum1(self, numbers: List[int], target: int) -> List[int]:
-        n = len(numbers)
-        i = 0
-        j = n - 1
-        while i < j:
-            if numbers[i] + numbers[j] == target:
-                return [i + 1, j + 1]
+    def detectCycle(self, head: ListNode) -> ListNode:
+        if head is None:
+            return None
+        
+        slow = head
+        fast = head
+        while fast is not None:
+            slow = slow.next
+            if fast.next is not None:
+                fast = fast.next.next
             else:
-                if numbers[i] + numbers[j] < target:
-                    i += 1
-                else:
-                    j -= 1
-        return []
-    
-def main():
-    solution = Solution()
-    list = [2,7,11,15]
-    target = 9
-    l = solution.twoSum1(list, target)
-    print(l)
-    
-if __name__ == '__main__':
-    main()
-
-```
-
-## lc125 Valid Palindrome
-
-```python3
-class Solution:
-    def isPalindrome(self, s: str) -> bool:
-        n = len(s)
-        i = 0
-        j = n - 1
-        while i < j:
-            if not s[i].isalnum():
-                i += 1
-                continue
-            if not s[j].isalnum():
-                j -= 1
-                continue
-            if s[i].lower() == s[j].lower():
-                i += 1
-                j -= 1
-            else:
-                #print("i={}, j={}".format(i, j))
-                return False
-        return True
-    
-def main():
-    solution = Solution()
-    #s = "A man, a plan, a canal: Panama"
-    s = "race a car"
-    b = solution.isPalindrome(s)
-    assert(b == False)
-
-if __name__ == '__main__':
-    main()
-```
-
-## lc345 Reverse Vowels of a String
-
-```python3
-class Solution:
-    def reverseVowels(self, s: str) -> str:
-        i, j = 0, len(s) - 1
-        l = list(s)
-        vowels = "aeiou"
-        while i < j:
-            if vowels.find(s[i].lower()) == -1:
-                i += 1
-                continue
-            if vowels.find(s[j].lower()) == -1:
-                j -= 1
-                continue
-            if vowels.find(s[i].lower()) != -1 and vowels.find(s[j].lower()) != -1:
-                l[i], l[j] = l[j], l[i]
-                i, j = i + 1, j - 1
-        return "".join(l)
-                
-def main():
-    solution = Solution()
-    #s = "hello"
-    s = "leetcode";
-    ret_str = solution.reverseVowels(s)
-    print(ret_str)
-    
-if __name__ == '__main__':
-    main()
-```
-
-## lc11 Container With Most Water
-
-```python3
-from typing import List
-
-
-class Solution:
-    def maxArea(self, height: List[int]) -> int:
-        n = len(height)
-        i, j = 0, n - 1
-        max_area = 0
-        while i < j:
-            tmp = 0
-            if height[i] < height[j]:
-                tmp = (j - i) * height[i]
-                i += 1
-            else:
-                tmp = (j - i) * height[j]
-                j -= 1
-            if tmp > max_area:
-                max_area = tmp
-        return max_area
-    
-def main():
-    solution = Solution()
-    #height = [1,8,6,2,5,4,8,3,7]
-    height = [1,1]
-    m = solution.maxArea(height)
-    #assert(m == 49)
-    assert(m == 1)
-    
-if __name__ == '__main__':
-    main()
-```
-
-## lc209
-
-```python3
-from typing import List
-import sys
-
-
-class Solution:
-    def minSubArrayLen(self, target: int, nums: List[int]) -> int:
-        n = len(nums)
-        left, right, total = 0, 0, 0
-        res = sys.maxsize
-        while right < n:
-            total += nums[right]
-            while total >= target:
-                res = min(res, right - left + 1)
-                total -= nums[left]
-                left += 1
-            right += 1
-        return 0 if res == sys.maxsize else res
+                return None
             
+            if fast == slow:
+                ptr = head
+                while ptr != slow:
+                    ptr = ptr.next
+                    slow = slow.next
+                return ptr
         
+        return None
         
         
 def main():
     solution = Solution()
-    nums = [2,3,1,2,4,3]
-    target = 7
-    m = solution.minSubArrayLen(target, nums)
-    assert(m == 2)
+    
+    node1 = ListNode(3)
+    headA = node1
+    node1.next = ListNode(2)
+    node1 = node1.next
+    node1.next = ListNode(0)
+    node1 = node1.next
+    node1.next = ListNode(4)
+    node1 = node1.next
+    node1.next = headA.next
+    
+    node_out = solution.detectCycle(headA)
+    print(node_out.val)
+    
+    index = 0
+    while headA != node_out:
+        headA = headA.next
+        index += 1
+    
+    assert(index == 1)
     
 if __name__ == '__main__':
     main()
+
 ```
 
+### lc160
+
+```python3
+# Definition for singly-linked list.
+class ListNode:
+    def __init__(self, x):
+        self.val = x
+        self.next = None
+    
+
+class Solution:
+    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> ListNode:
+        if not headA or not headB:
+            return None
+        nodeA = headA
+        nodeB = headB
+        while nodeA != nodeB:
+            nodeA = nodeA.next if nodeA else headB
+            nodeB = nodeB.next if nodeB else headA
+        return nodeA
+        
+def main():
+    solution = Solution()
+    
+    node1 = ListNode(4)
+    headA = node1
+    node1.next = ListNode(1)
+    node1 = node1.next
+    node1.next = ListNode(8)
+    node1 = node1.next
+    node1.next = ListNode(4)
+    node1 = node1.next
+    node1.next = ListNode(5)
+    
+    node2 = ListNode(5)
+    headB = node2
+    node2.next = ListNode(6)
+    node2 = node2.next
+    node2.next = ListNode(1)
+    node2 = node2.next
+    intersectNode = headA.next.next
+    node2.next = intersectNode
+    
+    node_out = solution.getIntersectionNode(headA, headB)
+    assert(node_out.val == 8)
+    print(node_out.val)
+        
+if __name__ == '__main__':
+    main()
+        
+```
