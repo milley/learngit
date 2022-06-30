@@ -1,3 +1,4 @@
+```rust
 // you need this in your cargo.toml
 // reqwest = { version = "0.11.11", features = ["blocking", "stream"] }
 // scraper = "0.13.0"
@@ -75,3 +76,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	
 	Ok(())
 }
+```
