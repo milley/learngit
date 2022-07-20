@@ -201,7 +201,7 @@ class MyLinkedList:
             succ = self.tail
             for _ in range(self.size - index):
                 succ = succ.prev
-            succ = succ.prev
+            pred = succ.prev
             
         # insertion itself
         self.size += 1
