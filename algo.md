@@ -1,240 +1,63 @@
-lc61
+# lc200
 
 ```python3
-from typing import Optional
-
-# Definition for singly-linked list.
-class ListNode:
-    def __init__(self, val=0, next=None):
-        self.val = val
-        self.next = next
-class Solution:
-    def rotateRight(self, head: Optional[ListNode], k: int) -> Optional[ListNode]:
-        if k == 0 or not head or not head.next:
-            return head
-        
-        cur = head
-        n = 0
-        while cur:
-            n += 1
-            cur = cur.next
-        
-        if n - k % n == n:
-            return head
-        
-        n = n - k % n
-        
-        
-        
-        cur = head
-        t = 0
-        
-        left_head = None
-        while cur:
-            t += 1
-            if t == n:
-                left_head = cur.next
-                cur.next = None
-                break
-            
-            cur = cur.next
-        
-        new_head = left_head
-        while left_head and left_head.next:
-            left_head = left_head.next
-        left_head.next = head
-        
-        return new_head
-
-def test1():
-    solution = Solution()
-    
-    node1 = ListNode(1)
-    node2 = ListNode(2)
-    node3 = ListNode(3)
-    node4 = ListNode(4)
-    node5 = ListNode(5)
-    
-    node1.next = node2
-    node2.next = node3
-    node3.next = node4
-    node4.next = node5
-    
-    out = solution.rotateRight(node1, 2)
-    #print(out.val)
-    assert(out.val == 4)
-def test2():
-    solution = Solution()
-    
-    node1 = ListNode(1)
-    node2 = ListNode(2)
-    node1.next = node2
-    
-    out = solution.rotateRight(node1, 2)
-    print(out.val)
-    
-if __name__ == '__main__':
-    #test1()
-    test2()
-```
-
-lc138
-
-```python3
-from typing import Optional
-
-"""
-# Definition for a Node.
-"""
-class Node:
-    def __init__(self, x: int, next: 'Node' = None, random: 'Node' = None):
-        self.val = int(x)
-        self.next = next
-        self.random = random
-
-class Solution:
-    cached_map = dict()
-    
-    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':
-        if head is None:
-            return None
-        if self.cached_map.get(head) is None:
-            head_new = Node(head.val, None, None)
-            self.cached_map[head] = head_new
-            head_new.next = self.copyRandomList(head.next)
-            head_new.random = self.copyRandomList(head.random)
-            
-        return self.cached_map[head]
-    
-    def copyRandomList1(self, head: 'Optional[Node]') -> 'Optional[Node]':
-        if head is None:
-            return None
-        
-        cached_map = dict()
-        
-        p = head
-        while p:
-            new_node = Node(p.val, None, None)
-            cached_map[p] = new_node
-            p = p.next
-        
-        p = head
-        while p:
-            if p.next:
-                cached_map[p].next = cached_map[p.next]
-            if p.random:
-                cached_map[p].random = cached_map[p.random]
-            p = p.next
-            
-        return cached_map[head]
-def test1():
-    solution = Solution()
-    
-    node7 = Node(7, None, None)
-    node13 = Node(13, None, None)
-    node11 = Node(11, None, None)
-    node10 = Node(10, None, None)
-    node1 = Node(1, None, None)
-    
-    node7.next = node13
-    node7.random = None
-    node13.next = node11
-    node13.random = node7
-    node11.next = node10
-    node11.random = node1
-    node10.next = node1
-    node10.random = node11
-    node1.next = None
-    node1.random = node7
-    
-    new_node = solution.copyRandomList(node7)
-    
-if __name__ == '__main__':
-    test1()
-    
-```
-
-## lc268
-
-```python3
+import collections
 from typing import List
 
 class Solution:
-    def missingNumber1(self, nums: List[int]) -> int:
-        nums.sort()
-        t = 0
-        for i in nums:
-            if i != t:
-                return t
-            t += 1
-        return t
+    def numIslands(self, grid: List[List[str]]) -> int:
+        x, y = len(grid), len(grid[0])
+        cnt = 0
+        if x == 0:
+            return 0
+        for r in range(x):
+            for c in range(y):
+                if grid[r][c] == "1":
+                    cnt += 1
+                    grid[r][c] = "0"
+                    neighbors = collections.deque([(r, c)])
+                    #print(list(neighbors))
+                    while neighbors:
+                        row, col = neighbors.popleft()
+                        print("{} {}".format(row, col))
+                        for xx, yy in [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]:
+                            if 0 <= xx < x and 0 <= yy < y and grid[xx][yy] == "1":
+                                neighbors.append((xx, yy))
+                                grid[xx][yy] = "0"
+                    #print(grid)
+        return cnt
     
-    def missingNumber(self, nums: List[int]) -> int:
-        n = len(nums)
-        total = n * (n + 1) // 2
-        arrSum = sum(nums)
-        return total - arrSum
+    def dfs(self, grid, r, c):
+        grid[r][c] = 0
+        nr, nc = len(grid), len(grid[0])
+        for x, y in [(r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)]:
+            if 0 <= x < nr and 0 <= y < nc and grid[x][y] == "1":
+                self.dfs(grid, x, y)
     
-if __name__ == '__main__':
-    solution = Solution()
-    nums = [3, 0, 1]
-    print(solution.missingNumber(nums))
-```
-
-lc622
-
-```python3
-class MyCircularQueue:
-
-    def __init__(self, k: int):
-        self.head = 0
-        self.tail = 0
-        self.items = [0] * (k + 1)
-        self.n = k + 1
-
-
-    def enQueue(self, value: int) -> bool:
-        if self.isFull():
-            return False
-        self.items[self.tail] = value
-        self.tail = (self.tail + 1) % self.n
-        return True
-
-    def deQueue(self) -> bool:
-        if self.isEmpty():
-            return False
-        self.head = (self.head + 1) % self.n
-        return True
-
-    def Front(self) -> int:
-        return -1 if self.isEmpty() else self.items[self.head]
-
-    def Rear(self) -> int:
-        return -1 if self.isEmpty() else self.items[(self.tail -1 ) % self.n]
-
-    def isEmpty(self) -> bool:
-        return self.head == self.tail
-
-    def isFull(self) -> bool:
-        return (self.tail + 1) % self.n == self.head
-
-
+    def numIslands1(self, grid: List[List[str]]) -> int:
+        nr = len(grid)
+        if nr == 0:
+            return 0
+        nc = len(grid[0])
+        
+        num_islands = 0
+        for r in range(nr):
+            for c in range(nc):
+                if grid[r][c] == "1":
+                    num_islands += 1
+                    self.dfs(grid, r, c)
+        return num_islands
+    
 def test1():
-    obj = MyCircularQueue(3)
-    assert(obj.enQueue(1) == True)
-    assert(obj.enQueue(2) == True)
-    assert(obj.enQueue(3) == True)
-    print(obj.items)
-    assert(obj.enQueue(4) == False)
-    assert(obj.isFull() == True)
-    assert(obj.deQueue() == True)
-    assert(obj.enQueue(4) == True)
-    print(obj.items)
-    assert(obj.Rear() == 4)
-    assert(obj.Front() == 2)
+    solution = Solution()
+    l = [
+        ["1","1","1","1","0"],
+        ["1","1","0","1","0"],
+        ["1","1","0","0","0"],
+        ["0","0","0","0","0"]
+    ]
+    print(solution.numIslands(l))
     
-
-# Your MyCircularQueue object will be instantiated and called as such:
-if __name__ == '__main__':
+if __name__ == "__main__":
     test1()
 ```
