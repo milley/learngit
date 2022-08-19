@@ -1,17 +1,28 @@
-javascript regex
+# python3中nonlocal
 
-```js
-// qq regex test
-let re_qq = /[1-9][0-9]{4,}/;
-let qq_str = "25555432";
+函数内使用nonlocal，函数内部使用就近闭合范围内的非全局变量。
 
-let match = re_qq.test(qq_str) && qq_str.length < 12;
-console.log(match)
+```python3
+def myfunc1():
+    x = "Bill"
+    def myfunc2():
+        nonlocal x
+        x = "hello"
+    myfunc2() 
+    return x
 
-// wx length
-let re_phone = /^1(3\d|4[5-9]|5[0-35-9]|6[567]|7[0-8]|8\d|9[0-35-9])\d{8}$/;
-let phone_str = "13388880000";
+print(myfunc1())
+```
 
-match = re_phone.test(phone_str);
-console.log(match);
+如果不使用nonlocal，则不会修改函数外部的局部变量。
+
+```python3
+def myfunc1():
+    x = "Bill"
+    def myfunc2():
+        x = "hello"
+    myfunc2() 
+    return x
+
+print(myfunc1())
 ```
