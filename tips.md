@@ -1,28 +1,19 @@
-# python3中nonlocal
+# Python中sort和sorted
 
-函数内使用nonlocal，函数内部使用就近闭合范围内的非全局变量。
+对于列表来说，可以使用list.sort()方法对当前列表进行排序。sorted()函数是对所有可迭代的对象进行排序。
 
-```python3
-def myfunc1():
-    x = "Bill"
-    def myfunc2():
-        nonlocal x
-        x = "hello"
-    myfunc2() 
-    return x
+区别：
 
-print(myfunc1())
-```
-
-如果不使用nonlocal，则不会修改函数外部的局部变量。
+list中的sort()函数对已经存在的列表进行操作，内建函数sorted()方法返回的是一个新的list，而不是在原来的基础上进行的操作。
 
 ```python3
-def myfunc1():
-    x = "Bill"
-    def myfunc2():
-        x = "hello"
-    myfunc2() 
-    return x
-
-print(myfunc1())
+>>> num = [3,2,1]
+>>> num.sort()
+>>> print(num)
+[1, 2, 3]
+>>> num = [3, 2, 1]
+>>> sorted(num)
+[1, 2, 3]
+>>> num
+[3, 2, 1]
 ```
