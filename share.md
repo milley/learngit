@@ -1,67 +1,182 @@
-# Rust自定义Release下的构建配置
+# Rust过程宏1
 
-最近在看crm的源码，在Rust的Cargo.toml配置中，可能会存在profile.release来定义编译的部分参数。通过release profile可以预定义和可定制不同配置的参数，它允许程序员在编译代码时可以控制更多的选项。每个配置都独立于其他的配置。
+## 声明宏
 
-Cargo有两个主要的配置选项：dev和release。通过cargo build会调用dev的配置选项，通过cargo build --release会调用release的配置选项。
+声明宏对代码模板做简单的替换。下面使用一个实例来实现vector宏的功能：
 
-在没有显示增加任何[profile.*]节点时Cargo会有默认的设置。增加[profile.*]节点会相应的覆盖默认的设置。通过[profile](https://doc.rust-lang.org/cargo/reference/profiles.html)来查看所有的配置信息。
+```rust
+#[macro_export]
+macro_rules! my_vec {
+    // Create a None vector
+    () => {
+        std::vec::Vec::new()
+    };
+    // process my_vec![1, 2, 3]
+    ($($el:expr),*) => ({
+        let mut v = std::vec::Vec::new();
+        $(v.push($el);)*
+        v
+    });
+    // process my_vec![0; 10]
+    ($el:expr; $n:expr) => {
+        std::vec::from_elem($el, $n)
+    }
+}
 
-下面列出crm的几种配置：
+fn main() {
+    let mut v = my_vec![];
+    v.push(1);
+    println!("{:?}", v);
 
-## opt-level
+    let _v = my_vec!(1, 2, 3, 4);
+    let _v = my_vec![1, 2, 3, 4];
+    let v = my_vec!{1, 2, 3, 4};
+    println!("{:?}", v);
 
-控制优化等级，更高等级的优化通过牺牲更长的编译时间来产生更快的运行时代码。高等级优化会修改或重新排列编译代码，可能会导致代码调试起来更困难。
+    println!("{:?}", v);
 
-允许的选项有：
+    let v = my_vec![1; 10];
+    println!("{:?}", v);
+}
+```
 
-- 0: 不优化
-- 1: 基本优化
-- 2: 更多优化
-- 3: 全部优化
-- "s": 优化二进制大小
-- "z": 优化二进制大小，但是会关闭循环向量
+## 第一个简单的过程宏
 
-建议通过实验不同等级来确定最终合适的优化选项。
+Rust中可以使用标准库中的#[proc_macro]来定义过程宏，也可以使用宏属性#[proc_macro_attribute]和用户自定义导出属性#[proc_macro_derive]。
 
-## incremental
+在Cargo.toml文件中，需要使用以下节点：
 
-控制-C incremental flag选项，可以打开或者关闭incremental编译模式。incremental构建导致rustc保存额外信息到磁盘，在编译crate时可以用来复用，可以提升重新编译时间。额外信息保存到target路径中。
+```toml
+[lib]
+proc-macro = true
+```
 
-允许的选项：
+定义一个最简单的宏：
 
-- true: 打开
-- false: 关闭
+```rust
+use proc_macro::TokenStream;
 
-Incremental构建模式仅仅用在workspace成员和"path"依赖项。incremental值可以被全局的CARGO_INCREMENTAL环境变量或者build.incremental配置变量覆盖。
+#[proc_macro]
+pub fn sql(input: TokenStream) -> TokenStream {
+    println!("{:#?}", input);
+    "fn hello() { println!(\"hello world\"); }".parse().unwrap()
+}
+```
 
-## codegen-units
+这里通过输出input这个TokenStream来看解析的是什么样，需要新建一个example来调用：
 
-控制-C codegen-units flag选项，标识一个crate将会分割到几个"code generation units"。更多的code generation units允许crate尽可能的并行处理来减少编译时间，但是会生成慢的代码。
+```rust
 
-选项值应该大于0。incremental构建默认的选项是256，其他选项默认是16。
+use basic::sql;
 
-## lto
+fn main() {
+    sql!(select * from table1 where id = 10 and timestamp > 1000 order by timestamp desc limit 10);
+}
+```
 
-控制-C lto flag选项，控制LLVM的链接时间优化。LTO可以，使用整个程序分析，在链接最耗时的地方生成更高效的代码。
+通过命令cargo run --example sql来运行结果：
 
-允许的选项有：
+```txt
+TokenStream [
+    Ident {
+        ident: "select",
+        span: #0 bytes(39..45),
+    },
+    Punct {
+        ch: '*',
+        spacing: Alone,
+        span: #0 bytes(46..47),
+    },
+    Ident {
+        ident: "from",
+        span: #0 bytes(48..52),
+    },
+    Ident {
+        ident: "table1",
+        span: #0 bytes(53..59),
+    },
+    Ident {
+        ident: "where",
+        span: #0 bytes(60..65),
+    },
+    Ident {
+        ident: "id",
+        span: #0 bytes(66..68),
+    },
+    Punct {
+        ch: '=',
+        spacing: Alone,
+        span: #0 bytes(69..70),
+    },
+    Literal {
+        kind: Integer,
+        symbol: "10",
+        suffix: None,
+        span: #0 bytes(71..73),
+    },
+    Ident {
+        ident: "and",
+        span: #0 bytes(74..77),
+    },
+    Ident {
+        ident: "timestamp",
+        span: #0 bytes(78..87),
+    },
+    Punct {
+        ch: '>',
+        spacing: Alone,
+        span: #0 bytes(88..89),
+    },
+    Literal {
+        kind: Integer,
+        symbol: "1000",
+        suffix: None,
+        span: #0 bytes(90..94),
+    },
+    Ident {
+        ident: "order",
+        span: #0 bytes(95..100),
+    },
+    Ident {
+        ident: "by",
+        span: #0 bytes(101..103),
+    },
+    Ident {
+        ident: "timestamp",
+        span: #0 bytes(104..113),
+    },
+    Ident {
+        ident: "desc",
+        span: #0 bytes(114..118),
+    },
+    Ident {
+        ident: "limit",
+        span: #0 bytes(119..124),
+    },
+    Literal {
+        kind: Integer,
+        symbol: "10",
+        suffix: None,
+        span: #0 bytes(125..127),
+    },
+]
+```
 
-- false: 执行"thin local LTO"，仅仅用本地crate自身的"codegen utils"来执行细微的"LTO"。如果codegen utils是1或者opt-level是0则不执行LTO。
-- true or "fat": 执行"fat" LTO尝试在依赖树中优化所有的crate。
-- "thin": 执行"thin" LTO，有点类似于"fat"，在获得类似于"fat"的执行效率同时大大的减少时间。
-- "off": 关闭LTO。
+可以看出TokenStream被解析成了Ident、Punct、Literal等元素。
 
-## panic
+写过程宏经常会用到2个Crate：
 
-控制-C panic flag选项，标识使用哪种panic策略。
+- [syn](https://docs.rs/syn/1.0.99/syn/)
+- [quote](https://docs.rs/quote/1.0.21/quote/)
 
-允许的选项有：
+syn可以解析Rust标记流解析成Rust代码中的语法树。主要有以下几种API：
 
-- "unwind": 放松栈上的panic
-- "abort": panic后结束流程
+- Data structures
+- Derives
+- Parsing
+- Location information
+- Feature flags
 
-如果设置为"unwind"，依赖于目标平台的默认配置。例如，NVPTX平台不支持unwind因此只能是abort。
+quote!宏将Rust语法树数据结构转换成代码中的标记。
 
-测试，基准，构建脚本，过程宏都会忽略panic设置。rustc测试会普遍依赖unwind行为。
-
-另外，当使用abort策略然后构建一个test，所有的依赖会强制使用unwind策略进行构建。
+下一节，先不使用syn和quote来实现一个过程宏的基本用法。
